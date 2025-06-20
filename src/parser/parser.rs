@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use crate::lexer::{Lexer, TokenKind};
 use crate::lexer::Token;
-use crate::parser::nodes::{AssignNode, BinaryNode, ExprNode, FuncCallNode, IdentityNode};
+use crate::parser::nodes::{AssignNode, BinaryNode, ExprNode, FuncCallNode, IdentityNode, ListNode, ObjectNode, ObjectProperty};
 
 pub struct Parser<'a> {
     lexer: &'a mut Lexer<'a>,
@@ -22,10 +22,15 @@ impl<'a> Parser<'a> {
             (TokenKind::Identifier, Parser::handle_identity),
             (TokenKind::Minus, Parser::handle_minus),
             (TokenKind::LeftParen, Parser::handle_paren),
+            (TokenKind::LeftBracket, Parser::handle_array),
+            (TokenKind::LeftCurly, Parser::handle_object),
+            (TokenKind::Increment, Parser::handle_unary),
+            (TokenKind::Decrement, Parser::handle_unary),
         ]);
         let identity_handlers = HashMap::from([
             (TokenKind::Dot, Parser::handle_identity_address as fn(&mut Self, &mut IdentityNode)),
-            (TokenKind::LeftBracket, Parser::handle_identity_address)
+            (TokenKind::LeftBracket, Parser::handle_identity_address),
+            (TokenKind::LeftParen, Parser::handle_func_call),
         ]);
         let assignment_token_kinds = HashSet::from([
             TokenKind::Assign,
@@ -34,7 +39,7 @@ impl<'a> Parser<'a> {
             TokenKind::AsteriskAssign,
             TokenKind::SlashAssign,
             TokenKind::ModuloAssign,
-            TokenKind::ExponentAssign
+            TokenKind::ExponentAssign,
         ]);
         let augmented_assignment_to_arithmetic = HashMap::from([
             (TokenKind::PlusAssign, TokenKind::Plus),
@@ -43,6 +48,8 @@ impl<'a> Parser<'a> {
             (TokenKind::SlashAssign, TokenKind::Slash),
             (TokenKind::ModuloAssign, TokenKind::Modulo),
             (TokenKind::ExponentAssign, TokenKind::Exponent),
+            (TokenKind::Increment, TokenKind::Plus),
+            (TokenKind::Decrement, TokenKind::Minus),
         ]);
         Self { 
             lexer,
@@ -97,6 +104,19 @@ impl<'a> Parser<'a> {
         while let Some(handler) = self.identity_handlers.get(&self.current_token.kind){
             handler(self, &mut identity);
         }
+        if matches!(self.current_token.kind, TokenKind::Increment | TokenKind::Decrement) {
+            let token_kind = self.current_token.kind;
+            self.eat(token_kind);
+            return ExprNode::Assign(AssignNode {
+                identity: identity.clone(),
+                value: Box::new(ExprNode::Binary(BinaryNode {
+                    operator: self.augmented_assignment_to_arithmetic.get(&token_kind).unwrap().clone(),
+                    left: Box::new(ExprNode::Identity(identity)),
+                    right: Box::new(ExprNode::Int(1))
+                })),
+                return_after: true
+            }) 
+        }
         ExprNode::Identity(identity)
     }
     
@@ -128,14 +148,52 @@ impl<'a> Parser<'a> {
     
     fn handle_func_call(&mut self, identity: &mut IdentityNode) {
         self.eat(TokenKind::LeftParen);
-        let args = self.get_args();
+        let args = self.get_args(TokenKind::RightParen);
         self.eat(TokenKind::RightParen);
-        let func_call = FuncCallNode {
+        identity.address = vec![ExprNode::FuncCall(FuncCallNode {
             identity: identity.clone(),
             args,
-        };
-        let new_identity = IdentityNode{ address: vec![ExprNode::FuncCall(func_call)] };
-        *identity = new_identity
+        })];
+    }
+    
+    fn handle_object(&mut self) -> ExprNode {
+        let mut object = ObjectNode { properties: Vec::new() };
+        self.eat(TokenKind::LeftCurly);
+        while self.current_token.kind != TokenKind::RightCurly {
+            let key = self.expr();
+            self.eat(TokenKind::Colon);
+            object.properties.push(ObjectProperty { key, value: self.expr() });
+            if self.current_token.kind == TokenKind::Comma {
+                self.eat(TokenKind::Comma);
+            }
+        }
+        self.eat(TokenKind::RightCurly);
+        ExprNode::Object(object)
+    }
+    
+    fn handle_array(&mut self) -> ExprNode {
+        self.eat(TokenKind::LeftBracket);
+        let args_list = ListNode { elements: self.get_args(TokenKind::RightBracket) };
+        self.eat(TokenKind::RightBracket);
+        ExprNode::List(args_list)
+    }
+    
+    fn handle_unary(&mut self) -> ExprNode {
+        let token_kind = self.current_token.kind;
+        self.eat(token_kind);
+        let node = self.expr();
+        if let ExprNode::Identity(identity_node) = node {
+            return ExprNode::Assign(AssignNode {
+                identity: identity_node.clone(),
+                value: Box::new(ExprNode::Binary(BinaryNode {
+                    operator: token_kind,
+                    left: Box::new(ExprNode::Identity(identity_node)),
+                    right: Box::new(ExprNode::Int(1)),
+                })),
+                return_after: true
+            })
+        }
+        panic!("Unary operator can only be applied to an identifier")
     }
     
     fn handle_assign(&mut self, node: ExprNode) -> ExprNode {
@@ -160,7 +218,7 @@ impl<'a> Parser<'a> {
                     _ => panic!("Invalid assignment type {:?}", assignment_type)
                 }
             };
-        let assign = AssignNode { identity, value: Box::new(value_node) };
+        let assign = AssignNode { identity, value: Box::new(value_node), return_after: true };
         ExprNode::Assign(assign)
     }
     
@@ -171,11 +229,14 @@ impl<'a> Parser<'a> {
         expr
     }
     
-    fn get_args(&mut self) -> Vec<ExprNode> {
+    fn get_args(&mut self, closing: TokenKind) -> Vec<ExprNode> {
         let mut args: Vec<ExprNode> = Vec::new();
-        while self.current_token.kind == TokenKind::Comma {
-            self.eat(TokenKind::Comma);
+        if self.current_token.kind != closing {
             args.push(self.expr());
+            while self.current_token.kind == TokenKind::Comma {
+                self.eat(TokenKind::Comma);
+                args.push(self.expr());
+            }
         }
         args
     }
