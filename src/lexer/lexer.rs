@@ -1,10 +1,10 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
 use crate::lexer::token;
 
 pub struct Lexer<'a> {
     chars: std::str::Chars<'a>,
     current_char: Option<char>,
-    reserved_keywords: HashSet<&'static str>,
+    reserved_keywords: HashMap<&'static str, token::TokenKind>,
     single_char_tokens: HashMap<char, token::TokenKind>,
     special_token_handlers: HashMap<char, fn(&mut Self) -> token::Token>
 }
@@ -13,15 +13,17 @@ impl<'a> Lexer<'a> {
     pub fn new(source: &'a str) -> Self {
         let mut chars = source.chars();
         let current_char = chars.next();
-        let reserved_keywords: HashSet<&'static str> = HashSet::from([
-            "if",
-            "else",
-            "while",
-            "break",
-            "continue",
-            "fn",
-            "return",
-            "null"
+        let reserved_keywords: HashMap<&'static str, token::TokenKind> = HashMap::from([
+            ("if", token::TokenKind::If),
+            ("else", token::TokenKind::Else),
+            ("true", token::TokenKind::True),
+            ("false", token::TokenKind::False),
+            ("while", token::TokenKind::While),
+            ("break", token::TokenKind::Break),
+            ("continue", token::TokenKind::Continue),
+            ("fn", token::TokenKind::Fn),
+            ("return", token::TokenKind::Return),
+            ("null", token::TokenKind::Null),
         ]);
         let single_char_tokens: HashMap<char, token::TokenKind> = HashMap::from([
             ('(', token::TokenKind::LeftParen),
@@ -116,8 +118,8 @@ impl<'a> Lexer<'a> {
             result.push(c);
             self.advance();
         }
-        if self.reserved_keywords.contains(&result.as_str()) {
-            return token::Token::new(token::TokenKind::Keyword, result)
+        if let Some(keyword) = self.reserved_keywords.get(&result.as_str()) {
+            return token::Token::new(*keyword, result)
         }
         token::Token::new(token::TokenKind::Identifier, result)
     }

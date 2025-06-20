@@ -19,6 +19,8 @@ impl<'a> Parser<'a> {
             (TokenKind::Int, Parser::handle_int as fn(&mut Self) -> ExprNode),
             (TokenKind::Float, Parser::handle_float),
             (TokenKind::String, Parser::handle_string),
+            (TokenKind::True, Parser::handle_boolean),
+            (TokenKind::False, Parser::handle_boolean),
             (TokenKind::Identifier, Parser::handle_identity),
             (TokenKind::Minus, Parser::handle_minus),
             (TokenKind::LeftParen, Parser::handle_paren),
@@ -85,6 +87,20 @@ impl<'a> Parser<'a> {
         let node = ExprNode::String(self.current_token.value.clone());
         self.eat(TokenKind::String);
         node
+    }
+
+    fn handle_boolean(&mut self) -> ExprNode {
+        match self.current_token.kind {
+            TokenKind::True => {
+                self.eat(TokenKind::True);
+                ExprNode::Bool(true)
+            },
+            TokenKind::False => {
+                self.eat(TokenKind::False);
+                ExprNode::Bool(false)
+            },
+            _ => panic!("Expected a boolean literal, got {:?}", self.current_token.kind)
+        }
     }
     
     fn handle_minus(&mut self) -> ExprNode {

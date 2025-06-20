@@ -1,11 +1,9 @@
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum TokenKind {
     Identifier,
-    Keyword,
     Int,
     Float,
     String,
-    Boolean,
     EOF,
     
     Equals,
@@ -34,6 +32,17 @@ pub enum TokenKind {
     RightCurly,
     LeftBracket,
     RightBracket,
+    
+    If,
+    Else,
+    True,
+    False,
+    While,
+    Break,
+    Continue,
+    Fn,
+    Return,
+    Null,
 
     Comma,
     Colon,

@@ -1,9 +1,10 @@
 use crate::lexer::token;
+use ordered_float::OrderedFloat;
 
 #[derive(Clone, Debug)]
 pub enum ExprNode {
     Int(i64),
-    Float(f64),
+    Float(OrderedFloat<f64>),
     Bool(bool),
     String(String),
     Identity(IdentityNode),
