@@ -36,6 +36,7 @@ impl<'a> Lexer<'a> {
             (';', token::TokenKind::Semicolon),
             (',', token::TokenKind::Comma),
             ('.', token::TokenKind::Dot),
+            ('&', token::TokenKind::Ampersand),
         ]);
         let special_tokenizers: HashMap<char, fn(&mut Self) -> token::Token> = HashMap::from([
             ('+', Lexer::plus_token as fn(&mut Self) -> token::Token), // implies cast on all v

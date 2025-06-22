@@ -8,6 +8,7 @@ pub enum ExprNode {
     Bool(bool),
     String(String),
     Identity(IdentityNode),
+    Reference(ReferenceNode),
     Binary(BinaryNode),
     FuncCall(FuncCallNode),
     Assign(AssignNode),
@@ -28,6 +29,11 @@ impl ExprNode {
 #[derive(Clone, Debug)]
 pub struct IdentityNode {
     pub address: Vec<ExprNode>
+}
+
+#[derive(Clone, Debug)]
+pub struct ReferenceNode {
+    pub identity: Box<ExprNode>,
 }
 
 #[derive(Clone, Debug)]

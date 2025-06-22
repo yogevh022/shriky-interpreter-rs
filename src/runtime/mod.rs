@@ -1,3 +1,2 @@
 pub mod values;
-mod environment;
-mod interpreter;
+pub mod environment;

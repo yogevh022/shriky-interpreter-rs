@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 use crate::runtime::environment::Environment;
-use crate::runtime::values::RuntimeValue;
+use crate::runtime::values::{BoolValue, FloatValue, IntValue, RuntimeValue, StringValue};
 use crate::parser::nodes::ExprNode;
 use std::mem;
+use crate::runtime::Counter;
+
 pub struct Interpreter<'a> {
     env: &'a mut Environment,
     value_resolution_handlers: HashMap<mem::Discriminant<ExprNode>, fn(ExprNode) -> RuntimeValue>,
@@ -10,9 +12,7 @@ pub struct Interpreter<'a> {
 
 impl<'a> Interpreter<'a> {
     pub fn new(env: &'a mut Environment) -> Self {
-        let value_resolution_handlers: HashMap<mem::Discriminant<ExprNode>, fn(ExprNode) -> RuntimeValue> = HashMap::from([
-            ()
-        ]);
+        let value_resolution_handlers: HashMap<mem::Discriminant<ExprNode>, fn(ExprNode) -> RuntimeValue> = HashMap::from([]);
         Self {
             env,
             value_resolution_handlers,
@@ -28,35 +28,38 @@ impl<'a> Interpreter<'a> {
 
     pub fn resolve_int(&mut self, node: ExprNode) -> RuntimeValue {
         match node {
-            ExprNode::Int(value) => RuntimeValue::Int(value),
+            ExprNode::Int(value) => RuntimeValue::Int(IntValue { id: Counter.next(), value }),
             _ => panic!("Expected int, got {:?}", node),
         }
     }
 
     pub fn resolve_float(&mut self, node: ExprNode) -> RuntimeValue {
         match node {
-            ExprNode::Float(value) => RuntimeValue::Float(value),
+            ExprNode::Float(value) => RuntimeValue::Float(FloatValue { id: Counter.next(), value }),
             _ => panic!("Expected float, got {:?}", node),
         }
     }
 
     pub fn resolve_string(&mut self, node: ExprNode) -> RuntimeValue {
         match node {
-            ExprNode::String(value) => RuntimeValue::String(value),
+            ExprNode::String(value) => RuntimeValue::String(StringValue { id: Counter.next(), value }),
             _ => panic!("Expected string, got {:?}", node),
         }
     }
 
     pub fn resolve_bool(&mut self, node: ExprNode) -> RuntimeValue {
         match node {
-            ExprNode::Bool(value) => RuntimeValue::Bool(value),
+            ExprNode::Bool(value) => RuntimeValue::Bool(BoolValue { id: Counter.next(), value }),
             _ => panic!("Expected bool, got {:?}", node),
         }
     }
 
     pub fn resolve_identity(&mut self, node: ExprNode) -> RuntimeValue {
-        // todo
+        match node {
+            ExprNode::Identity(identity_node) => {},
+            ExprNode::Reference(reference_node) => {},
+            _ => panic!("Expected identity or reference, got {:?}", node),
+        }
+        RuntimeValue::Int(IntValue { id: Counter.next(), value: 1 })
     }
-
-    
 }

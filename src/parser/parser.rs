@@ -1,7 +1,8 @@
 use std::collections::{HashMap, HashSet};
+use ordered_float::OrderedFloat;
 use crate::lexer::{Lexer, TokenKind};
 use crate::lexer::Token;
-use crate::parser::nodes::{AssignNode, BinaryNode, ExprNode, FuncCallNode, IdentityNode, ListNode, ObjectNode, ObjectProperty};
+use crate::parser::nodes::{AssignNode, BinaryNode, ExprNode, FuncCallNode, IdentityNode, ListNode, ObjectNode, ObjectProperty, ReferenceNode};
 
 pub struct Parser<'a> {
     lexer: &'a mut Lexer<'a>,
@@ -23,6 +24,7 @@ impl<'a> Parser<'a> {
             (TokenKind::False, Parser::handle_boolean),
             (TokenKind::Identifier, Parser::handle_identity),
             (TokenKind::Minus, Parser::handle_minus),
+            (TokenKind::Ampersand, Parser::handle_ampersand),
             (TokenKind::LeftParen, Parser::handle_paren),
             (TokenKind::LeftBracket, Parser::handle_array),
             (TokenKind::LeftCurly, Parser::handle_object),
@@ -78,7 +80,7 @@ impl<'a> Parser<'a> {
     }
     
     fn handle_float(&mut self) -> ExprNode {
-        let node = ExprNode::Float(self.current_token.value.parse::<f64>().unwrap());
+        let node = ExprNode::Float(OrderedFloat(self.current_token.value.parse::<f64>().unwrap()));
         self.eat(TokenKind::Float);
         node
     }
@@ -112,6 +114,15 @@ impl<'a> Parser<'a> {
         };
         self.eat(self.current_token.kind);
         ExprNode::Binary(binary)
+    }
+    
+    fn handle_ampersand(&mut self) -> ExprNode {
+        self.eat(TokenKind::Ampersand);
+        let identity = match self.current_token.kind {
+            TokenKind::Identifier => self.expr(),
+            _ => panic!("Cannot reference non identifier")
+        };
+        ExprNode::Reference(ReferenceNode { identity: Box::new(identity) })
     }
     
     fn handle_identity(&mut self) -> ExprNode {

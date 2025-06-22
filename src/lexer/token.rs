@@ -48,6 +48,7 @@ pub enum TokenKind {
     Colon,
     Semicolon,
     Dot,
+    Ampersand,
 }
 
 pub struct Token {
