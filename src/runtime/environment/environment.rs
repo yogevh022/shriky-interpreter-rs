@@ -79,7 +79,7 @@ impl Environment {
         Ok(mem_addr)
     }
     
-    pub fn get_memory_address(&mut self, address: &[RuntimeValue]) -> Result<Option<& usize>, AccessError> {
+    pub fn get_memory_address(&self, address: &[RuntimeValue]) -> Result<Option<& usize>, AccessError> {
         let scope = self.scope_chain.iter().rev().find(|scope| match scope {
             RuntimeValue::Object(obj) => { obj.properties.contains_key(&address[0]) },
             _ => false
@@ -88,6 +88,33 @@ impl Environment {
             Some(RuntimeValue::Object(_)) => self.get_memory_address_from_object(scope, address),
             _ => unreachable!()
         }
+    }
+    
+    pub fn get_value(&self, address: &[RuntimeValue]) -> Result<Option<&MemoryReference>, AccessError> {
+        let mem_addr = self.get_memory_address(address)?;
+        match mem_addr {
+            Some(mem) => Ok(self.memory.get(mem)),
+            None => Ok(None)
+        }
+    }
+    
+    pub fn set_value(&mut self, mem_addr: &usize, value: &RuntimeValue) -> Result<(), AccessError> {
+        let value_mem_ref = match self.memory.get_mut(mem_addr) {
+            Some(mem_ref) => {
+                mem_ref.value = value.clone();
+                mem_ref
+            },
+            None => {
+                let mem_ref = MemoryReference {
+                    value: value.clone(),
+                    referenced_by: HashSet::from([])
+                };
+                self.memory.insert(
+                    *mem_addr, mem_ref
+                );
+                self.memory.get_mut(mem_addr).unwrap()
+            }
+        };
     }
     
     pub fn zzz(&mut self, address: &[RuntimeValue]) -> Option<&mut MemoryReference> {

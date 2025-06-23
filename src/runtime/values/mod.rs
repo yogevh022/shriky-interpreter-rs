@@ -30,6 +30,16 @@ impl RuntimeValue {
             RuntimeValue::String(str) => str.id(),
         }
     }
+    
+    pub fn is_primitive(&self) -> bool {
+        match self {
+            RuntimeValue::Int(_) |
+            RuntimeValue::Float(_) |
+            RuntimeValue::Bool(_) |
+            RuntimeValue::String(_) => true,
+            _ => false,
+        }
+    }
 }
 
 impl Hash for RuntimeValue {
