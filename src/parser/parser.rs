@@ -118,11 +118,14 @@ impl<'a> Parser<'a> {
     
     fn handle_ampersand(&mut self) -> ExprNode {
         self.eat(TokenKind::Ampersand);
-        let identity = match self.current_token.kind {
+        let identity_node = match self.current_token.kind {
             TokenKind::Identifier => self.expr(),
             _ => panic!("Cannot reference non identifier")
         };
-        ExprNode::Reference(ReferenceNode { identity: Box::new(identity) })
+        match identity_node {
+            ExprNode::Identity(identity) => ExprNode::Reference(ReferenceNode::new(identity)),
+            _ => unreachable!()
+        }
     }
     
     fn handle_identity(&mut self) -> ExprNode {

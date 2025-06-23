@@ -13,7 +13,7 @@ impl<'a> Lexer<'a> {
     pub fn new(source: &'a str) -> Self {
         let mut chars = source.chars();
         let current_char = chars.next();
-        let reserved_keywords: HashMap<&'static str, token::TokenKind> = HashMap::from([
+        let reserved_keywords = HashMap::from([
             ("if", token::TokenKind::If),
             ("else", token::TokenKind::Else),
             ("true", token::TokenKind::True),
@@ -25,7 +25,7 @@ impl<'a> Lexer<'a> {
             ("return", token::TokenKind::Return),
             ("null", token::TokenKind::Null),
         ]);
-        let single_char_tokens: HashMap<char, token::TokenKind> = HashMap::from([
+        let single_char_tokens = HashMap::from([
             ('(', token::TokenKind::LeftParen),
             (')', token::TokenKind::RightParen),
             ('[', token::TokenKind::LeftBracket),
@@ -38,7 +38,7 @@ impl<'a> Lexer<'a> {
             ('.', token::TokenKind::Dot),
             ('&', token::TokenKind::Ampersand),
         ]);
-        let special_tokenizers: HashMap<char, fn(&mut Self) -> token::Token> = HashMap::from([
+        let special_tokenizers = HashMap::from([
             ('+', Lexer::plus_token as fn(&mut Self) -> token::Token), // implies cast on all v
             ('-', Lexer::minus_token),
             ('*', Lexer::asterisk_token),

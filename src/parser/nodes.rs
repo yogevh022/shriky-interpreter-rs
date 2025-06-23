@@ -16,7 +16,37 @@ pub enum ExprNode {
     List(ListNode),
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub enum ExprKind {
+    Int,
+    Float,
+    Bool,
+    String,
+    Identity,
+    Reference,
+    Binary,
+    FuncCall,
+    Assign,
+    Object,
+    List,
+}
+
 impl ExprNode {
+    pub fn kind(&self) -> ExprKind {
+        match self {
+            ExprNode::Int(_) => ExprKind::Int,
+            ExprNode::Float(_) => ExprKind::Float,
+            ExprNode::Bool(_) => ExprKind::Bool,
+            ExprNode::String(_) => ExprKind::String,
+            ExprNode::Identity(_) => ExprKind::Identity,
+            ExprNode::Reference(_) => ExprKind::Reference,
+            ExprNode::Binary(_) => ExprKind::Binary,
+            ExprNode::FuncCall(_) => ExprKind::FuncCall,
+            ExprNode::Assign(_) => ExprKind::Assign,
+            ExprNode::Object(_) => ExprKind::Object,
+            ExprNode::List(_) => ExprKind::List,
+        }
+    }
     pub fn is_primitive(&self) -> bool {
         matches!(self,
             ExprNode::Bool(_) |
@@ -33,7 +63,13 @@ pub struct IdentityNode {
 
 #[derive(Clone, Debug)]
 pub struct ReferenceNode {
-    pub identity: Box<ExprNode>,
+    pub identity: IdentityNode,
+}
+
+impl ReferenceNode {
+    pub fn new(identity: IdentityNode) -> Self {
+        Self { identity }
+    }
 }
 
 #[derive(Clone, Debug)]
