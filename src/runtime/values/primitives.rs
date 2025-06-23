@@ -4,7 +4,7 @@ use crate::runtime::environment::Counter;
 
 #[derive(Eq, Clone, Debug)]
 pub struct IntValue {
-    pub id: usize,
+    pub id: u64,
     pub value: i64,
 }
 
@@ -14,13 +14,22 @@ impl PartialEq for IntValue {
     }
 }
 
+impl Default for IntValue {
+    fn default() -> Self {
+        IntValue {
+            value: 0,
+            id: Counter.next()
+        }
+    }
+}
+
 impl HasId for IntValue {
-    fn id(&self) -> usize { self.id }
+    fn id(&self) -> u64 { self.id }
 }
 
 #[derive(Eq, Clone, Debug)]
 pub struct FloatValue {
-    pub id: usize,
+    pub id: u64,
     pub value: OrderedFloat<f64>,
 }
 
@@ -31,12 +40,12 @@ impl PartialEq for FloatValue {
 }
 
 impl HasId for FloatValue {
-    fn id(&self) -> usize { self.id }
+    fn id(&self) -> u64 { self.id }
 }
 
 #[derive(Eq, Clone, Debug)]
 pub struct BoolValue {
-    pub id: usize,
+    pub id: u64,
     pub value: bool,
 }
 
@@ -47,12 +56,12 @@ impl PartialEq for BoolValue {
 }
 
 impl HasId for BoolValue {
-    fn id(&self) -> usize { self.id }
+    fn id(&self) -> u64 { self.id }
 }
 
 #[derive(Eq, Clone, Debug)]
 pub struct StringValue {
-    pub id: usize,
+    pub id: u64,
     pub value: String,
 }
 
@@ -72,5 +81,5 @@ impl PartialEq for StringValue {
 }
 
 impl HasId for StringValue {
-    fn id(&self) -> usize { self.id }
+    fn id(&self) -> u64 { self.id }
 }

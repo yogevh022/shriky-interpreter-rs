@@ -5,12 +5,12 @@ use super::traits::*;
 
 #[derive(Eq, PartialEq, Clone, Debug)]
 pub struct ObjectValue {
-    pub id: usize,
-    pub properties: indexmap::IndexMap<RuntimeValue, usize>, // usize is memory address
+    pub id: u64,
+    pub properties: indexmap::IndexMap<RuntimeValue, u64>, // u64 is memory address
 }
 
 impl ObjectValue {
-    pub fn get_property(&self, key: &RuntimeValue) -> Result<Option<&usize>, AccessError> {
+    pub fn get_property(&self, key: &RuntimeValue) -> Result<Option<&u64>, AccessError> {
         match key {
             RuntimeValue::Int(_)
             | RuntimeValue::Float(_)
@@ -18,6 +18,10 @@ impl ObjectValue {
             | RuntimeValue::String(_) => Ok(self.properties.get(key)),
             _ => Err(AccessError::InvalidAddress)
         }
+    }
+    
+    pub fn set_property(&mut self, key: &RuntimeValue, value: u64) {
+        self.properties.insert(key.clone(), value);
     }
 }
 
@@ -31,19 +35,26 @@ impl Default for ObjectValue {
 }
 
 impl HasId for ObjectValue {
-    fn id(&self) -> usize { self.id }
+    fn id(&self) -> u64 { self.id }
 }
 
 #[derive(Eq, PartialEq, Clone, Debug)]
 pub struct ListValue {
-    pub id: usize,
-    pub elements: Vec<usize>, // usize is memory address
+    pub id: u64,
+    pub elements: Vec<u64>, // u64 is memory address
 }
 
 impl ListValue {
-    pub fn get_element(&self, index: &RuntimeValue) -> Result<Option<&usize>, AccessError> {
+    pub fn get_element(&self, index: &RuntimeValue) -> Result<Option<&u64>, AccessError> {
         match index {
             RuntimeValue::Int(i) => Ok(self.elements.get(i.value as usize)),
+            _ => Err(AccessError::InvalidAddress)
+        }
+    }
+    
+    pub fn set_element(&mut self, index: &RuntimeValue, value: u64) -> Result<(), AccessError> {
+        match index {
+            RuntimeValue::Int(i) => Ok(self.elements[i.value as usize] = value),
             _ => Err(AccessError::InvalidAddress)
         }
     }
@@ -59,15 +70,25 @@ impl Default for ListValue {
 }
 
 impl HasId for ListValue {
-    fn id(&self) -> usize { self.id }
+    fn id(&self) -> u64 { self.id }
+}
+
+#[derive(Eq, PartialEq, Clone, Debug)]
+pub struct IdentityValue {
+    pub id: u64,
+    pub address: Vec<RuntimeValue>,
+}
+
+impl HasId for IdentityValue {
+    fn id(&self) -> u64 { self.id }
 }
 
 #[derive(Eq, PartialEq, Clone, Debug)]
 pub struct ReferenceValue {
-    pub id: usize,
-    pub memory_address: usize,
+    pub id: u64,
+    pub memory_address: u64,
 }
 
 impl HasId for ReferenceValue {
-    fn id(&self) -> usize { self.id }
+    fn id(&self) -> u64 { self.id }
 }

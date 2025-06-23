@@ -12,7 +12,9 @@ fn main() {
     let mut env = runtime::environment::Environment::new();
     let addr =vec![
         RuntimeValue::String(StringValue::from("object")),
-        RuntimeValue::String(StringValue::from("prop")),
     ];
-    // let z = env.test(&addr);
+    let val = RuntimeValue::String(StringValue::from("test complete!"));
+    env.set_value(&addr, &val);
+    let z = env.get_value(&addr);
+    println!("{:?}", env.tt());
 }

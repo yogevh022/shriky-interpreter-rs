@@ -1,3 +1,3 @@
 pub(crate) trait HasId {
-    fn id(&self) -> usize;
+    fn id(&self) -> u64;
 }

@@ -19,7 +19,7 @@ pub enum RuntimeValue {
 }
 
 impl RuntimeValue {
-    pub fn id(&self) -> usize {
+    pub fn id(&self) -> u64 {
         match self {
             RuntimeValue::Object(obj) => obj.id(),
             RuntimeValue::List(list) => list.id(),

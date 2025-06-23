@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 pub struct Counter;
 impl Counter {
@@ -6,8 +6,8 @@ impl Counter {
         Counter
     }
     
-    pub fn next(&self) -> usize {
-        static GLOBAL_COUNTER: AtomicUsize = AtomicUsize::new(0);
+    pub fn next(&self) -> u64 {
+        static GLOBAL_COUNTER: AtomicU64 = AtomicU64::new(0);
         GLOBAL_COUNTER.fetch_add(1, Ordering::Relaxed)
     }
 }
