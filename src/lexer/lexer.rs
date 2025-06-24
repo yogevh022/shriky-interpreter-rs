@@ -187,6 +187,16 @@ impl<'a> Lexer<'a> {
             Some('=') => {
                 self.advance();
                 token::Token::new(token::TokenKind::SlashAssign, "/=".to_string())
+            },
+            Some('/') => {
+                self.advance();
+                match self.current_char {
+                    Some('=') => {
+                        self.advance();
+                        token::Token::new(token::TokenKind::DoubleSlashAssign, "//=".to_string())
+                    },
+                    _ => token::Token::new(token::TokenKind::DoubleSlash, "//".to_string()),
+                }
             }
             _ => token::Token::new(token::TokenKind::Slash, "/".to_string()),
         }

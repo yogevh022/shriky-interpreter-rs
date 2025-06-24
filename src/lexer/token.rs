@@ -12,6 +12,7 @@ pub enum TokenKind {
     Minus,
     Asterisk,
     Slash,
+    DoubleSlash,
     Modulo,
     Exponent,
 
@@ -23,6 +24,7 @@ pub enum TokenKind {
     MinusAssign,
     AsteriskAssign,
     SlashAssign,
+    DoubleSlashAssign,
     ModuloAssign,
     ExponentAssign,
 
