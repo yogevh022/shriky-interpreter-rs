@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::process::id;
 use crate::runtime::environment::utils::Counter;
 use crate::runtime::values::{RuntimeValue, ObjectValue, ReferenceValue, StringValue, ListValue, IntValue, IdentityValue, HasId};
 use crate::runtime::values::error::AccessError;
@@ -131,27 +132,38 @@ impl Environment {
         &self.memory
     }
     
+    fn drop_ref_if_referring(&mut self, id: u64, mem_addr: Option<&u64>) {
+        if let Some(mem_addr) = mem_addr {
+            if let Some(mut mem_ref) = self.memory.get_mut(mem_addr) {
+                mem_ref.remove_referer(id);
+            }
+        }
+    }
+    
     pub fn test(&mut self, identity: &IdentityValue, value: &RuntimeValue) -> Result<(), AccessError> {
-        let mut addressParent: &mut RuntimeValue;
+        let mut address_parent: &mut RuntimeValue;
         if identity.address.len() == 1 {
-            if let Ok(Some(mem_addr)) = self.get_memory_address_from_object(self.scope_chain.last(), &identity.address) {
-                if let Some(mut mem_ref) = self.memory.get_mut(mem_addr) {
-                    mem_ref.referenced_by.remove(&identity.id());
-                };
-            };
-            addressParent = self.scope_chain.last_mut().unwrap();
+            let mem_addr = self.get_memory_address_from_object(self.scope_chain.last(), &identity.address)?;
+            let Some(m) = mem_addr;
+            self.drop_ref_if_referring(identity.id(), Some(m));
+            address_parent = self.scope_chain.last_mut().unwrap();
         } else {
             let parent_mem_addr = self.get_memory_address_from_object(self.scope_chain.last(), &identity.address[..identity.address.len()-1])?;
-            if let Some(mem_addr) = parent_mem_addr {
-                if let Some(parent_mem_ref) = self.memory.get_mut(&mem_addr) {
-                    access_property(Some(&parent_mem_ref.value), identity.address.last().unwrap());
-                }
-            }
-            addressParent = self.scope_chain.last_mut().unwrap(); // temp
+            
+            // let mem_addr = if let Some(mem_addr) = parent_mem_addr
+            //     .and_then(|addr| self.memory.get_mut(addr)) {
+            //     Some(mem_addr)
+                // address_parent = &mut mem_addr.value;
+                // if let Some(mem_addr) = access_property(Some(&mem_addr.value), identity.address.last().unwrap()).ok() {
+                //     self.drop_ref_if_referring(identity.id(), mem_addr);
+                // }
+            // } else { None };
+            // else { unreachable!() }
         }
         let new_mem_ref = MemoryReference::new(value.clone(), identity.id());
-        set_property(addressParent, identity.address.last().unwrap(), &identity.id())?;
+        set_property(address_parent, identity.address.last().unwrap(), &identity.id())?;
         self.memory.insert(identity.id(), new_mem_ref);
+        Ok(())
     }
     
     // pub fn set_value(&mut self, address: &[RuntimeValue], value: &MemoryReference) -> Result<(), AccessError> {
