@@ -1,11 +1,11 @@
 use std::hash::Hash;
-mod primitives;
 mod complex;
-mod traits;
 pub mod error;
+mod primitives;
+mod traits;
 
-pub use primitives::*;
 pub use complex::*;
+pub use primitives::*;
 pub use traits::*;
 #[derive(Eq, PartialEq, Clone, Debug)]
 pub enum RuntimeValue {
@@ -16,6 +16,7 @@ pub enum RuntimeValue {
     Object(ObjectValue),
     List(ListValue),
     Reference(ReferenceValue),
+    Identity(IdentityValue),
 }
 
 impl RuntimeValue {
@@ -28,15 +29,16 @@ impl RuntimeValue {
             RuntimeValue::Float(float) => float.id(),
             RuntimeValue::Bool(bool) => bool.id(),
             RuntimeValue::String(str) => str.id(),
+            RuntimeValue::Identity(identity) => identity.id(),
         }
     }
-    
+
     pub fn is_primitive(&self) -> bool {
         match self {
-            RuntimeValue::Int(_) |
-            RuntimeValue::Float(_) |
-            RuntimeValue::Bool(_) |
-            RuntimeValue::String(_) => true,
+            RuntimeValue::Int(_)
+            | RuntimeValue::Float(_)
+            | RuntimeValue::Bool(_)
+            | RuntimeValue::String(_) => true,
             _ => false,
         }
     }

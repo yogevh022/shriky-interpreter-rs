@@ -1,6 +1,5 @@
-pub mod parser;
 pub mod nodes;
+pub mod parser;
 
-pub use parser::Parser;
 pub use nodes::ExprNode;
-
+pub use parser::Parser;

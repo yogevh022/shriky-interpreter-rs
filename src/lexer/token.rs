@@ -5,7 +5,7 @@ pub enum TokenKind {
     Float,
     String,
     EOF,
-    
+
     Equals,
 
     Plus,
@@ -17,7 +17,7 @@ pub enum TokenKind {
 
     Increment,
     Decrement,
-    
+
     Assign,
     PlusAssign,
     MinusAssign,
@@ -32,7 +32,7 @@ pub enum TokenKind {
     RightCurly,
     LeftBracket,
     RightBracket,
-    
+
     If,
     Else,
     True,
@@ -53,7 +53,7 @@ pub enum TokenKind {
 
 pub struct Token {
     pub kind: TokenKind,
-    pub value: String
+    pub value: String,
 }
 
 impl Token {

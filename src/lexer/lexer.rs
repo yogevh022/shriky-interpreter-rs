@@ -1,12 +1,12 @@
-use std::collections::{HashMap};
 use crate::lexer::token;
+use std::collections::HashMap;
 
 pub struct Lexer<'a> {
     chars: std::str::Chars<'a>,
     current_char: Option<char>,
     reserved_keywords: HashMap<&'static str, token::TokenKind>,
     single_char_tokens: HashMap<char, token::TokenKind>,
-    special_token_handlers: HashMap<char, fn(&mut Self) -> token::Token>
+    special_token_handlers: HashMap<char, fn(&mut Self) -> token::Token>,
 }
 
 impl<'a> Lexer<'a> {
@@ -44,14 +44,14 @@ impl<'a> Lexer<'a> {
             ('*', Lexer::asterisk_token),
             ('/', Lexer::slash_token),
             ('%', Lexer::modulo_token),
-            ('=', Lexer::equal_token)
+            ('=', Lexer::equal_token),
         ]);
         Self {
             chars,
             current_char,
             reserved_keywords,
             single_char_tokens,
-            special_token_handlers: special_tokenizers
+            special_token_handlers: special_tokenizers,
         }
     }
 
@@ -69,24 +69,24 @@ impl<'a> Lexer<'a> {
         let mut result = String::new();
         self.advance();
         while let Some(c) = self.current_char {
-            if c == opening_quote{
+            if c == opening_quote {
                 break;
             }
-            if c == '\\'{
+            if c == '\\' {
                 self.advance();
                 if let Some(c) = self.current_char {
                     match c {
                         'n' => result.push('\n'),
                         'r' => result.push('\r'),
                         '\\' => result.push('\\'),
-                        _ => result.push(c)
+                        _ => result.push(c),
                     }
                 }
             } else {
                 result.push(c);
             }
             self.advance();
-            if self.current_char.is_none(){
+            if self.current_char.is_none() {
                 panic!("Unterminated string literal");
             }
         }
@@ -107,7 +107,14 @@ impl<'a> Lexer<'a> {
             result.push(c);
             self.advance();
         }
-        token::Token::new(if is_float { token::TokenKind::Float } else { token::TokenKind::Int }, result)
+        token::Token::new(
+            if is_float {
+                token::TokenKind::Float
+            } else {
+                token::TokenKind::Int
+            },
+            result,
+        )
     }
 
     fn keyword_token(&mut self) -> token::Token {
@@ -120,7 +127,7 @@ impl<'a> Lexer<'a> {
             self.advance();
         }
         if let Some(keyword) = self.reserved_keywords.get(&result.as_str()) {
-            return token::Token::new(*keyword, result)
+            return token::Token::new(*keyword, result);
         }
         token::Token::new(token::TokenKind::Identifier, result)
     }
@@ -131,12 +138,12 @@ impl<'a> Lexer<'a> {
             Some('+') => {
                 self.advance();
                 token::Token::new(token::TokenKind::Increment, "++".to_string())
-            },
+            }
             Some('=') => {
                 self.advance();
                 token::Token::new(token::TokenKind::PlusAssign, "+=".to_string())
-            },
-            _ => token::Token::new(token::TokenKind::Plus, "+".to_string())
+            }
+            _ => token::Token::new(token::TokenKind::Plus, "+".to_string()),
         }
     }
 
@@ -146,12 +153,12 @@ impl<'a> Lexer<'a> {
             Some('-') => {
                 self.advance();
                 token::Token::new(token::TokenKind::Decrement, "--".to_string())
-            },
+            }
             Some('=') => {
                 self.advance();
                 token::Token::new(token::TokenKind::MinusAssign, "-=".to_string())
-            },
-            _ => token::Token::new(token::TokenKind::Minus, "-".to_string())
+            }
+            _ => token::Token::new(token::TokenKind::Minus, "-".to_string()),
         }
     }
 
@@ -160,17 +167,17 @@ impl<'a> Lexer<'a> {
         match self.current_char {
             Some('*') => {
                 self.advance();
-                if self.current_char.map_or(false, |c| c == '='){
+                if self.current_char.map_or(false, |c| c == '=') {
                     self.advance();
-                    return token::Token::new(token::TokenKind::ExponentAssign, "**=".to_string())
+                    return token::Token::new(token::TokenKind::ExponentAssign, "**=".to_string());
                 }
                 token::Token::new(token::TokenKind::Exponent, "**".to_string())
-            },
+            }
             Some('=') => {
                 self.advance();
                 token::Token::new(token::TokenKind::AsteriskAssign, "*=".to_string())
-            },
-            _ => token::Token::new(token::TokenKind::Asterisk, "*".to_string())
+            }
+            _ => token::Token::new(token::TokenKind::Asterisk, "*".to_string()),
         }
     }
 
@@ -180,8 +187,8 @@ impl<'a> Lexer<'a> {
             Some('=') => {
                 self.advance();
                 token::Token::new(token::TokenKind::SlashAssign, "/=".to_string())
-            },
-            _ => token::Token::new(token::TokenKind::Slash, "/".to_string())
+            }
+            _ => token::Token::new(token::TokenKind::Slash, "/".to_string()),
         }
     }
 
@@ -191,8 +198,8 @@ impl<'a> Lexer<'a> {
             Some('=') => {
                 self.advance();
                 token::Token::new(token::TokenKind::ModuloAssign, "%=".to_string())
-            },
-            _ => token::Token::new(token::TokenKind::Modulo, "%".to_string())
+            }
+            _ => token::Token::new(token::TokenKind::Modulo, "%".to_string()),
         }
     }
 
@@ -202,8 +209,8 @@ impl<'a> Lexer<'a> {
             Some('=') => {
                 self.advance();
                 token::Token::new(token::TokenKind::Equals, "==".to_string())
-            },
-            _ => token::Token::new(token::TokenKind::Assign, "=".to_string())
+            }
+            _ => token::Token::new(token::TokenKind::Assign, "=".to_string()),
         }
     }
 
@@ -213,21 +220,21 @@ impl<'a> Lexer<'a> {
                 self.skip_whitespace();
                 continue;
             }
-            if c.is_digit(10){
+            if c.is_digit(10) {
                 return self.number_token();
             }
             if c.is_alphanumeric() || c == '_' {
                 return self.keyword_token();
             }
-            if c == '\"' || c == '\''{
+            if c == '\"' || c == '\'' {
                 return self.string_token(c);
             }
-            if let Some(token_kind) = self.single_char_tokens.get(&c){
+            if let Some(token_kind) = self.single_char_tokens.get(&c) {
                 let tok = token::Token::new(*token_kind, c.to_string());
                 self.advance();
                 return tok;
             }
-            if let Some(handler) = self.special_token_handlers.get(&c){
+            if let Some(handler) = self.special_token_handlers.get(&c) {
                 return handler(self);
             }
             panic!("Unrecognized character: {}", c);

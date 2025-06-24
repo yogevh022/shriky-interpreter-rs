@@ -48,17 +48,16 @@ impl ExprNode {
         }
     }
     pub fn is_primitive(&self) -> bool {
-        matches!(self,
-            ExprNode::Bool(_) |
-            ExprNode::Int(_) |
-            ExprNode::Float(_) |
-            ExprNode::String(_))
+        matches!(
+            self,
+            ExprNode::Bool(_) | ExprNode::Int(_) | ExprNode::Float(_) | ExprNode::String(_)
+        )
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct IdentityNode {
-    pub address: Vec<ExprNode>
+    pub address: Vec<ExprNode>,
 }
 
 #[derive(Clone, Debug)]
@@ -89,7 +88,7 @@ pub struct FuncCallNode {
 pub struct AssignNode {
     pub identity: IdentityNode,
     pub value: Box<ExprNode>,
-    pub return_after: bool
+    pub return_after: bool,
 }
 
 #[derive(Clone, Debug)]
