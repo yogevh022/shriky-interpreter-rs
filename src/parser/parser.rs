@@ -1,11 +1,9 @@
 use crate::lexer::Token;
 use crate::lexer::{Lexer, TokenKind};
-use crate::parser::nodes::{
-    AssignNode, BinaryNode, ExprNode, FuncCallNode, IdentityNode, ListNode, ObjectNode,
-    ObjectProperty, ReferenceNode,
-};
+use crate::parser::nodes::*;
 use ordered_float::OrderedFloat;
 use std::collections::{HashMap, HashSet};
+use crate::parser::nodes::ExprKind::Logical;
 
 pub struct Parser<'a> {
     lexer: &'a mut Lexer<'a>,
@@ -341,6 +339,7 @@ impl<'a> Parser<'a> {
         let mut node = self.exponent();
         while self.current_token.kind == TokenKind::Asterisk
             || self.current_token.kind == TokenKind::Slash
+            || self.current_token.kind == TokenKind::Modulo
         {
             let token_kind = self.current_token.kind;
             self.eat(token_kind);
@@ -354,7 +353,7 @@ impl<'a> Parser<'a> {
         node
     }
 
-    fn expr(&mut self) -> ExprNode {
+    fn add_sub(&mut self) -> ExprNode {
         let mut node = self.term();
         while self.current_token.kind == TokenKind::Plus
             || self.current_token.kind == TokenKind::Minus
@@ -368,6 +367,56 @@ impl<'a> Parser<'a> {
             };
             node = ExprNode::Binary(binary);
         }
+        node
+    }
+
+    fn comparison(&mut self) -> ExprNode {
+        let mut node = self.add_sub();
+        while matches!(self.current_token.kind, TokenKind::GreaterThan | TokenKind::GreaterThanEquals | TokenKind::LessThan | TokenKind::LessThanEquals) {
+            let token_kind = self.current_token.kind;
+            self.eat(token_kind);
+            let comparison = ComparisonNode {
+                operator: token_kind,
+                left: Box::new(node),
+                right: Box::new(self.add_sub()),
+            };
+            node = ExprNode::Comparison(comparison);
+        }
+        node
+    }
+
+    fn equality(&mut self) -> ExprNode {
+        let mut node = self.comparison();
+        while matches!(self.current_token.kind, TokenKind::Equals | TokenKind::NotEquals) {
+            let token_kind = self.current_token.kind;
+            self.eat(token_kind);
+            let equality = ComparisonNode {
+                operator: token_kind,
+                left: Box::new(node),
+                right: Box::new(self.comparison()),
+            };
+            node = ExprNode::Comparison(equality);
+        }
+        node
+    }
+    
+    fn logical(&mut self) -> ExprNode {
+        let mut node = self.equality();
+        while matches!(self.current_token.kind, TokenKind::LogicalAND | TokenKind::LogicalOR) {
+            let token_kind = self.current_token.kind;
+            self.eat(token_kind);
+            let logical = LogicalNode {
+                operator: token_kind,
+                left: Box::new(node),
+                right: Box::new(self.equality()),
+            };
+            node = ExprNode::Logical(logical);
+        }
+        node
+    }
+    
+    fn assign(&mut self) -> ExprNode {
+        let mut node = self.logical();
         if self
             .assignment_token_kinds
             .contains(&self.current_token.kind)
@@ -375,6 +424,10 @@ impl<'a> Parser<'a> {
             return self.handle_assign(node);
         }
         node
+    }
+
+    fn expr(&mut self) -> ExprNode {
+        self.assign()
     }
 
     pub fn parse(&mut self) -> Vec<ExprNode> {

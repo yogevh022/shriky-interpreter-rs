@@ -7,6 +7,16 @@ pub enum TokenKind {
     EOF,
 
     Equals,
+    NotEquals,
+    
+    LessThan,
+    LessThanEquals,
+    GreaterThan,
+    GreaterThanEquals,
+
+    LogicalAND,
+    LogicalOR,
+    LogicalNOT,
 
     Plus,
     Minus,

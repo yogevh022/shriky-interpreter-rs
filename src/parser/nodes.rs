@@ -9,6 +9,8 @@ pub enum ExprNode {
     String(String),
     Identity(IdentityNode),
     Reference(ReferenceNode),
+    Logical(LogicalNode),
+    Comparison(ComparisonNode),
     Binary(BinaryNode),
     FuncCall(FuncCallNode),
     Assign(AssignNode),
@@ -24,6 +26,8 @@ pub enum ExprKind {
     String,
     Identity,
     Reference,
+    Logical,
+    Comparison,
     Binary,
     FuncCall,
     Assign,
@@ -45,6 +49,8 @@ impl ExprNode {
             ExprNode::Assign(_) => ExprKind::Assign,
             ExprNode::Object(_) => ExprKind::Object,
             ExprNode::List(_) => ExprKind::List,
+            ExprNode::Logical(_) => ExprKind::Logical,
+            ExprNode::Comparison(_) => ExprKind::Comparison
         }
     }
     pub fn is_primitive(&self) -> bool {
@@ -106,3 +112,18 @@ pub struct ObjectProperty {
 pub struct ListNode {
     pub elements: Vec<ExprNode>,
 }
+
+#[derive(Clone, Debug)]
+pub struct LogicalNode {
+    pub operator: token::TokenKind,
+    pub left: Box<ExprNode>,
+    pub right: Box<ExprNode>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ComparisonNode {
+    pub operator: token::TokenKind,
+    pub left: Box<ExprNode>,
+    pub right: Box<ExprNode>,
+}
+

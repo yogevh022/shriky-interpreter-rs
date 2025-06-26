@@ -36,7 +36,6 @@ impl<'a> Lexer<'a> {
             (';', token::TokenKind::Semicolon),
             (',', token::TokenKind::Comma),
             ('.', token::TokenKind::Dot),
-            ('&', token::TokenKind::Ampersand),
         ]);
         let special_tokenizers = HashMap::from([
             ('+', Lexer::plus_token as fn(&mut Self) -> token::Token), // implies cast on all v
@@ -45,6 +44,10 @@ impl<'a> Lexer<'a> {
             ('/', Lexer::slash_token),
             ('%', Lexer::modulo_token),
             ('=', Lexer::equal_token),
+            ('&', Lexer::ampersand_token),
+            ('!', Lexer::exclamation_token),
+            ('>', Lexer::greater_than_token),
+            ('<', Lexer::less_than_token),
         ]);
         Self {
             chars,
@@ -221,6 +224,50 @@ impl<'a> Lexer<'a> {
                 token::Token::new(token::TokenKind::Equals, "==".to_string())
             }
             _ => token::Token::new(token::TokenKind::Assign, "=".to_string()),
+        }
+    }
+
+    fn ampersand_token(&mut self) -> token::Token {
+        self.advance();
+        match self.current_char {
+            Some('&') => {
+                self.advance();
+                token::Token::new(token::TokenKind::LogicalAND, "&&".to_string())
+            },
+            _ => token::Token::new(token::TokenKind::Ampersand, "&".to_string()),
+        }
+    }
+    
+    fn exclamation_token(&mut self) -> token::Token {
+        self.advance();
+        match self.current_char {
+            Some('=') => {
+                self.advance();
+                token::Token::new(token::TokenKind::NotEquals, "!=".to_string())
+            },
+            _ => token::Token::new(token::TokenKind::LogicalNOT, "!".to_string()),
+        }
+    }
+    
+    fn greater_than_token(&mut self) -> token::Token {
+        self.advance();
+        match self.current_char {
+            Some('=') => { 
+                self.advance();
+                token::Token::new(token::TokenKind::GreaterThanEquals, ">=".to_string())
+            },
+            _ => token::Token::new(token::TokenKind::GreaterThan, ">".to_string()),
+        }
+    }
+    
+    fn less_than_token(&mut self) -> token::Token {
+        self.advance();
+        match self.current_char {
+            Some('=') => {
+                self.advance();
+                token::Token::new(token::TokenKind::LessThanEquals, "<=".to_string())
+            },
+            _ => token::Token::new(token::TokenKind::LessThan, "<".to_string()),
         }
     }
 

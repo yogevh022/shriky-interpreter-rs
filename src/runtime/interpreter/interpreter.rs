@@ -12,11 +12,11 @@ impl<'a> Interpreter<'a> {
     }
 
     pub fn eval(&mut self, expr: ExprNode) -> Result<RuntimeValue, String> {
-        match expr {
-            ExprNode::Binary(binary) => {},
-            ExprNode::Assign(assign) => {},
-            ExprNode::FuncCall(func_call) => {},
-            ExprNode
-        }
+        todo!();
+        // match expr {
+        //     ExprNode::Binary(binary) => {},
+        //     ExprNode::Assign(assign) => {},
+        //     ExprNode::FuncCall(func_call) => {},
+        // }
     }
 }
