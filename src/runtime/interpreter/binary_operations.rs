@@ -1,12 +1,11 @@
-use ordered_float::OrderedFloat;
 use crate::interpreter::Interpreter;
 use crate::lexer::TokenKind;
 use crate::parser::ExprNode;
 use crate::parser::nodes::BinaryNode;
 use crate::runtime::values::RuntimeValue;
+use ordered_float::OrderedFloat;
 
 impl<'a> Interpreter<'a> {
-    
     // fn binary_plus_int(&mut self, left: i64, right: ExprNode) -> ExprNode {
     //     match right {
     //         ExprNode::Int(v) => ExprNode::Int(left + v),
@@ -28,7 +27,7 @@ impl<'a> Interpreter<'a> {
     //         _ => panic!("Cannot add {:?} + {:?}", left, right),
     //     }
     // }
-    // 
+    //
     // fn binary_op(&mut self, op: BinaryNode) -> ExprNode {
     //     match op.operator {
     //         TokenKind::Plus => {},

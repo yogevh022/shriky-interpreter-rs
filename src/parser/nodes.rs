@@ -36,6 +36,54 @@ pub enum ExprKind {
 }
 
 impl ExprNode {
+    pub fn int(value: i64) -> ExprNode {
+        ExprNode::Int(value)
+    }
+
+    pub fn float<T: Into<OrderedFloat<f64>>>(value: T) -> ExprNode {
+        ExprNode::Float(value.into())
+    }
+
+    pub fn bool(value: bool) -> ExprNode {
+        ExprNode::Bool(value)
+    }
+
+    pub fn string(value: String) -> ExprNode {
+        ExprNode::String(value)
+    }
+
+    pub fn object(properties: Vec<ObjectProperty>) -> ExprNode {
+        ExprNode::Object(ObjectNode { properties })
+    }
+
+    pub fn list(elements: Vec<ExprNode>) -> ExprNode {
+        ExprNode::List(ListNode { elements })
+    }
+
+    pub fn binary(op: token::TokenKind, left: ExprNode, right: ExprNode) -> ExprNode {
+        ExprNode::Binary(BinaryNode {
+            operator: op,
+            left: Box::new(left),
+            right: Box::new(right),
+        })
+    }
+
+    pub fn comparison(op: token::TokenKind, left: ExprNode, right: ExprNode) -> ExprNode {
+        ExprNode::Comparison(ComparisonNode {
+            operator: op,
+            left: Box::new(left),
+            right: Box::new(right),
+        })
+    }
+
+    pub fn logical(op: token::TokenKind, left: ExprNode, right: ExprNode) -> ExprNode {
+        ExprNode::Logical(LogicalNode {
+            operator: op,
+            left: Box::new(left),
+            right: Box::new(right),
+        })
+    }
+
     pub fn kind(&self) -> ExprKind {
         match self {
             ExprNode::Int(_) => ExprKind::Int,
@@ -50,7 +98,7 @@ impl ExprNode {
             ExprNode::Object(_) => ExprKind::Object,
             ExprNode::List(_) => ExprKind::List,
             ExprNode::Logical(_) => ExprKind::Logical,
-            ExprNode::Comparison(_) => ExprKind::Comparison
+            ExprNode::Comparison(_) => ExprKind::Comparison,
         }
     }
     pub fn is_primitive(&self) -> bool {
@@ -126,4 +174,3 @@ pub struct ComparisonNode {
     pub left: Box<ExprNode>,
     pub right: Box<ExprNode>,
 }
-

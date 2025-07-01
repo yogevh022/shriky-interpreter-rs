@@ -1,4 +1,3 @@
-
 pub enum ByteOperation {
     LoadName = 0x01,
     LoadGlobal = 0x02,
@@ -8,5 +7,4 @@ pub enum ByteOperation {
     Call = 0x06,
     Pop = 0x07,
     StoreName = 0x08,
-    
 }

@@ -1,9 +1,9 @@
 use crate::lexer::Token;
 use crate::lexer::{Lexer, TokenKind};
+use crate::parser::nodes::ExprKind::Logical;
 use crate::parser::nodes::*;
 use ordered_float::OrderedFloat;
 use std::collections::{HashMap, HashSet};
-use crate::parser::nodes::ExprKind::Logical;
 
 pub struct Parser<'a> {
     lexer: &'a mut Lexer<'a>,
@@ -84,21 +84,19 @@ impl<'a> Parser<'a> {
     }
 
     fn handle_int(&mut self) -> ExprNode {
-        let node = ExprNode::Int(self.current_token.value.parse::<i64>().unwrap());
+        let node = ExprNode::int(self.current_token.value.parse::<i64>().unwrap());
         self.eat(TokenKind::Int);
         node
     }
 
     fn handle_float(&mut self) -> ExprNode {
-        let node = ExprNode::Float(OrderedFloat(
-            self.current_token.value.parse::<f64>().unwrap(),
-        ));
+        let node = ExprNode::float(self.current_token.value.parse::<f64>().unwrap());
         self.eat(TokenKind::Float);
         node
     }
 
     fn handle_string(&mut self) -> ExprNode {
-        let node = ExprNode::String(self.current_token.value.clone());
+        let node = ExprNode::string(self.current_token.value.clone());
         self.eat(TokenKind::String);
         node
     }
@@ -107,11 +105,11 @@ impl<'a> Parser<'a> {
         match self.current_token.kind {
             TokenKind::True => {
                 self.eat(TokenKind::True);
-                ExprNode::Bool(true)
+                ExprNode::bool(true)
             }
             TokenKind::False => {
                 self.eat(TokenKind::False);
-                ExprNode::Bool(false)
+                ExprNode::bool(false)
             }
             _ => panic!(
                 "Expected a boolean literal, got {:?}",
@@ -234,11 +232,9 @@ impl<'a> Parser<'a> {
 
     fn handle_array(&mut self) -> ExprNode {
         self.eat(TokenKind::LeftBracket);
-        let args_list = ListNode {
-            elements: self.get_args(TokenKind::RightBracket),
-        };
+        let elements = self.get_args(TokenKind::RightBracket);
         self.eat(TokenKind::RightBracket);
-        ExprNode::List(args_list)
+        ExprNode::list(elements)
     }
 
     fn handle_unary(&mut self) -> ExprNode {
@@ -325,12 +321,7 @@ impl<'a> Parser<'a> {
         while self.current_token.kind == TokenKind::Exponent {
             let token_kind = self.current_token.kind;
             self.eat(token_kind);
-            let binary = BinaryNode {
-                operator: token_kind,
-                left: Box::new(node),
-                right: Box::new(self.factor()),
-            };
-            node = ExprNode::Binary(binary);
+            node = ExprNode::binary(token_kind, node, self.factor());
         }
         node
     }
@@ -343,12 +334,8 @@ impl<'a> Parser<'a> {
         {
             let token_kind = self.current_token.kind;
             self.eat(token_kind);
-            let binary = BinaryNode {
-                operator: token_kind,
-                left: Box::new(node),
-                right: Box::new(self.exponent()),
-            };
-            node = ExprNode::Binary(binary);
+
+            node = ExprNode::binary(token_kind, node, self.exponent());
         }
         node
     }
@@ -360,61 +347,53 @@ impl<'a> Parser<'a> {
         {
             let token_kind = self.current_token.kind;
             self.eat(token_kind);
-            let binary = BinaryNode {
-                operator: token_kind,
-                left: Box::new(node),
-                right: Box::new(self.term()),
-            };
-            node = ExprNode::Binary(binary);
+            node = ExprNode::binary(token_kind, node, self.term());
         }
         node
     }
 
     fn comparison(&mut self) -> ExprNode {
         let mut node = self.add_sub();
-        while matches!(self.current_token.kind, TokenKind::GreaterThan | TokenKind::GreaterThanEquals | TokenKind::LessThan | TokenKind::LessThanEquals) {
+        while matches!(
+            self.current_token.kind,
+            TokenKind::GreaterThan
+                | TokenKind::GreaterThanEquals
+                | TokenKind::LessThan
+                | TokenKind::LessThanEquals
+        ) {
             let token_kind = self.current_token.kind;
             self.eat(token_kind);
-            let comparison = ComparisonNode {
-                operator: token_kind,
-                left: Box::new(node),
-                right: Box::new(self.add_sub()),
-            };
-            node = ExprNode::Comparison(comparison);
+            node = ExprNode::comparison(token_kind, node, self.add_sub());
         }
         node
     }
 
     fn equality(&mut self) -> ExprNode {
         let mut node = self.comparison();
-        while matches!(self.current_token.kind, TokenKind::Equals | TokenKind::NotEquals) {
+        while matches!(
+            self.current_token.kind,
+            TokenKind::Equals | TokenKind::NotEquals
+        ) {
             let token_kind = self.current_token.kind;
             self.eat(token_kind);
-            let equality = ComparisonNode {
-                operator: token_kind,
-                left: Box::new(node),
-                right: Box::new(self.comparison()),
-            };
-            node = ExprNode::Comparison(equality);
+            node = ExprNode::comparison(token_kind, node, self.comparison());
         }
         node
     }
-    
+
     fn logical(&mut self) -> ExprNode {
         let mut node = self.equality();
-        while matches!(self.current_token.kind, TokenKind::LogicalAND | TokenKind::LogicalOR) {
+        while matches!(
+            self.current_token.kind,
+            TokenKind::LogicalAND | TokenKind::LogicalOR
+        ) {
             let token_kind = self.current_token.kind;
             self.eat(token_kind);
-            let logical = LogicalNode {
-                operator: token_kind,
-                left: Box::new(node),
-                right: Box::new(self.equality()),
-            };
-            node = ExprNode::Logical(logical);
+            node = ExprNode::logical(token_kind, node, self.equality())
         }
         node
     }
-    
+
     fn assign(&mut self) -> ExprNode {
         let mut node = self.logical();
         if self

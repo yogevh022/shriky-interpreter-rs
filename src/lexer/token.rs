@@ -8,7 +8,7 @@ pub enum TokenKind {
 
     Equals,
     NotEquals,
-    
+
     LessThan,
     LessThanEquals,
     GreaterThan,

@@ -1,6 +1,6 @@
+use crate::parser::nodes::*;
 use crate::runtime::environment::Environment;
 use crate::runtime::values::{BoolValue, FloatValue, IntValue, RuntimeValue, StringValue};
-use crate::parser::nodes::*;
 
 pub struct Interpreter<'a> {
     env: &'a mut Environment,

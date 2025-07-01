@@ -190,14 +190,14 @@ impl<'a> Lexer<'a> {
             Some('=') => {
                 self.advance();
                 token::Token::new(token::TokenKind::SlashAssign, "/=".to_string())
-            },
+            }
             Some('/') => {
                 self.advance();
                 match self.current_char {
                     Some('=') => {
                         self.advance();
                         token::Token::new(token::TokenKind::DoubleSlashAssign, "//=".to_string())
-                    },
+                    }
                     _ => token::Token::new(token::TokenKind::DoubleSlash, "//".to_string()),
                 }
             }
@@ -233,40 +233,40 @@ impl<'a> Lexer<'a> {
             Some('&') => {
                 self.advance();
                 token::Token::new(token::TokenKind::LogicalAND, "&&".to_string())
-            },
+            }
             _ => token::Token::new(token::TokenKind::Ampersand, "&".to_string()),
         }
     }
-    
+
     fn exclamation_token(&mut self) -> token::Token {
         self.advance();
         match self.current_char {
             Some('=') => {
                 self.advance();
                 token::Token::new(token::TokenKind::NotEquals, "!=".to_string())
-            },
+            }
             _ => token::Token::new(token::TokenKind::LogicalNOT, "!".to_string()),
         }
     }
-    
+
     fn greater_than_token(&mut self) -> token::Token {
         self.advance();
         match self.current_char {
-            Some('=') => { 
+            Some('=') => {
                 self.advance();
                 token::Token::new(token::TokenKind::GreaterThanEquals, ">=".to_string())
-            },
+            }
             _ => token::Token::new(token::TokenKind::GreaterThan, ">".to_string()),
         }
     }
-    
+
     fn less_than_token(&mut self) -> token::Token {
         self.advance();
         match self.current_char {
             Some('=') => {
                 self.advance();
                 token::Token::new(token::TokenKind::LessThanEquals, "<=".to_string())
-            },
+            }
             _ => token::Token::new(token::TokenKind::LessThan, "<".to_string()),
         }
     }
