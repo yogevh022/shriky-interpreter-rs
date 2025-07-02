@@ -9,7 +9,6 @@ pub struct Parser<'a> {
     lexer: &'a mut Lexer<'a>,
     current_token: Token,
     expr_handlers: HashMap<TokenKind, for<'b> fn(&'b mut Parser<'a>) -> ExprNode>,
-    identity_handlers: HashMap<TokenKind, for<'b> fn(&'b mut Parser<'a>, &mut IdentityNode)>,
     assignment_token_kinds: HashSet<TokenKind>,
     augmented_assignment_to_arithmetic: HashMap<TokenKind, TokenKind>,
 }
@@ -26,22 +25,14 @@ impl<'a> Parser<'a> {
             (TokenKind::String, Parser::handle_string),
             (TokenKind::True, Parser::handle_boolean),
             (TokenKind::False, Parser::handle_boolean),
-            (TokenKind::Identifier, Parser::handle_identity),
+            (TokenKind::Identifier, Parser::handle_base_identity),
             (TokenKind::Minus, Parser::handle_minus),
             (TokenKind::Ampersand, Parser::handle_ampersand),
             (TokenKind::LeftParen, Parser::handle_paren),
             (TokenKind::LeftBracket, Parser::handle_array),
             (TokenKind::LeftCurly, Parser::handle_object),
-            (TokenKind::Increment, Parser::handle_unary),
-            (TokenKind::Decrement, Parser::handle_unary),
-        ]);
-        let identity_handlers = HashMap::from([
-            (
-                TokenKind::Dot,
-                Parser::handle_identity_address as fn(&mut Self, &mut IdentityNode),
-            ),
-            (TokenKind::LeftBracket, Parser::handle_identity_address),
-            (TokenKind::LeftParen, Parser::handle_func_call),
+            (TokenKind::Increment, Parser::handle_increment_decrement_pre),
+            (TokenKind::Decrement, Parser::handle_increment_decrement_pre),
         ]);
         let assignment_token_kinds = HashSet::from([
             TokenKind::Assign,
@@ -66,7 +57,6 @@ impl<'a> Parser<'a> {
             lexer,
             current_token,
             expr_handlers,
-            identity_handlers,
             assignment_token_kinds,
             augmented_assignment_to_arithmetic,
         }
@@ -131,83 +121,71 @@ impl<'a> Parser<'a> {
 
     fn handle_ampersand(&mut self) -> ExprNode {
         self.eat(TokenKind::Ampersand);
-        let identity_node = match self.current_token.kind {
+        let maybe_identity_node = match self.current_token.kind {
             TokenKind::Identifier => self.expr(),
             _ => panic!("Cannot reference non identifier"),
         };
-        match identity_node {
-            ExprNode::Identity(identity) => ExprNode::Reference(ReferenceNode::new(identity)),
-            _ => unreachable!(),
-        }
+        let ExprNode::Identity(identity_node) = maybe_identity_node else {
+            unreachable!(
+                "Identity handlers returned {:?} instead of Identity",
+                maybe_identity_node
+            )
+        };
+        ExprNode::reference(identity_node)
     }
 
-    fn handle_identity(&mut self) -> ExprNode {
-        let mut identity = IdentityNode {
-            address: vec![ExprNode::String(self.current_token.value.to_string())],
-        };
-        self.eat(self.current_token.kind);
-        while let Some(handler) = self.identity_handlers.get(&self.current_token.kind) {
-            handler(self, &mut identity);
+    fn get_current_token_string(&self) -> ExprNode {
+        ExprNode::string(self.current_token.value.clone())
+    }
+
+    fn handle_base_identity(&mut self) -> ExprNode {
+        let identity_value = self.get_current_token_string();
+        self.eat(TokenKind::Identifier);
+        self.handle_identity(identity_value)
+    }
+
+    fn handle_identity(&mut self, index: ExprNode) -> ExprNode {
+        let mut index = index;
+        while matches!(
+            self.current_token.kind,
+            TokenKind::Dot | TokenKind::LeftBracket | TokenKind::LeftParen
+        ) {
+            index = match self.current_token.kind {
+                TokenKind::Dot => self.handle_access_attribute(index),
+                TokenKind::LeftBracket => self.handle_access_constant(index),
+                TokenKind::LeftParen => self.handle_func_call(index),
+                _ => unreachable!(),
+            };
         }
+        let identity = ExprNode::identity(index);
         if matches!(
             self.current_token.kind,
             TokenKind::Increment | TokenKind::Decrement
         ) {
-            let token_kind = self.current_token.kind;
-            self.eat(token_kind);
-            return ExprNode::Assign(AssignNode {
-                identity: identity.clone(),
-                value: Box::new(ExprNode::Binary(BinaryNode {
-                    operator: self
-                        .augmented_assignment_to_arithmetic
-                        .get(&token_kind)
-                        .unwrap()
-                        .clone(),
-                    left: Box::new(ExprNode::Identity(identity)),
-                    right: Box::new(ExprNode::Int(1)),
-                })),
-                return_after: true,
-            });
+            return self.handle_increment_decrement_post(identity);
         }
-        ExprNode::Identity(identity)
+        identity
     }
 
-    fn handle_identity_address(&mut self, identity: &mut IdentityNode) {
-        while match self.current_token.kind {
-            TokenKind::Dot => {
-                // property access
-                self.handle_identity_property(&mut identity.address);
-                true
-            }
-            TokenKind::LeftBracket => {
-                // index access (can be string)
-                self.handle_identity_index(&mut identity.address);
-                true
-            }
-            _ => false,
-        } {}
-    }
-
-    fn handle_identity_index(&mut self, address: &mut Vec<ExprNode>) {
-        self.eat(TokenKind::LeftBracket);
-        address.push(self.expr());
-        self.eat(TokenKind::RightBracket);
-    }
-
-    fn handle_identity_property(&mut self, address: &mut Vec<ExprNode>) {
+    fn handle_access_attribute(&mut self, index: ExprNode) -> ExprNode {
         self.eat(TokenKind::Dot);
-        address.push(ExprNode::String(self.current_token.value.to_string()));
-        self.eat(self.current_token.kind)
+        let accessed_attr = self.get_current_token_string();
+        self.eat(TokenKind::Identifier);
+        self.handle_identity(ExprNode::access_attribute(index, accessed_attr))
     }
 
-    fn handle_func_call(&mut self, identity: &mut IdentityNode) {
+    fn handle_access_constant(&mut self, index: ExprNode) -> ExprNode {
+        self.eat(TokenKind::LeftBracket);
+        let expr = self.expr();
+        self.eat(TokenKind::RightBracket);
+        self.handle_identity(ExprNode::access_constant(index, expr))
+    }
+
+    fn handle_func_call(&mut self, identity: ExprNode) -> ExprNode {
         self.eat(TokenKind::LeftParen);
         let args = self.get_args(TokenKind::RightParen);
         self.eat(TokenKind::RightParen);
-        identity.address = vec![ExprNode::FuncCall(FuncCallNode {
-            identity: identity.clone(),
-            args,
-        })];
+        ExprNode::func_call(identity, args)
     }
 
     fn handle_object(&mut self) -> ExprNode {
@@ -237,22 +215,25 @@ impl<'a> Parser<'a> {
         ExprNode::list(elements)
     }
 
-    fn handle_unary(&mut self) -> ExprNode {
+    fn handle_increment_decrement_pre(&mut self) -> ExprNode {
         let token_kind = self.current_token.kind;
         self.eat(token_kind);
-        let node = self.expr();
-        if let ExprNode::Identity(identity_node) = node {
-            return ExprNode::Assign(AssignNode {
-                identity: identity_node.clone(),
-                value: Box::new(ExprNode::Binary(BinaryNode {
-                    operator: token_kind,
-                    left: Box::new(ExprNode::Identity(identity_node)),
-                    right: Box::new(ExprNode::Int(1)),
-                })),
-                return_after: true,
-            });
+        let maybe_identity_expr = self.expr();
+        if let ExprNode::Identity(identity_node) = maybe_identity_expr.clone() {
+            let binary = ExprNode::binary(token_kind, maybe_identity_expr, ExprNode::int(1));
+            return ExprNode::assign(identity_node, binary, true);
         }
-        panic!("Unary operator can only be applied to an identifier")
+        panic!("Increment / Decrement operation can only be applied to identities.")
+    }
+
+    fn handle_increment_decrement_post(&mut self, identity_expr: ExprNode) -> ExprNode {
+        let token_kind = self.current_token.kind;
+        self.eat(token_kind);
+        if let ExprNode::Identity(identity_node) = identity_expr.clone() {
+            let binary = ExprNode::binary(token_kind, identity_expr, ExprNode::int(1));
+            return ExprNode::assign(identity_node, binary, false);
+        }
+        panic!("Increment / Decrement operation can only be applied to identities.")
     }
 
     fn handle_assign(&mut self, node: ExprNode) -> ExprNode {

@@ -8,6 +8,8 @@ pub enum ExprNode {
     Bool(bool),
     String(String),
     Identity(IdentityNode),
+    AccessConstant(AccessConstantNode),
+    AccessAttribute(AccessAttributeNode),
     Reference(ReferenceNode),
     Logical(LogicalNode),
     Comparison(ComparisonNode),
@@ -18,6 +20,15 @@ pub enum ExprNode {
     List(ListNode),
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum LiteralNode {
+    Int(i64),
+    Float(OrderedFloat<f64>),
+    Bool(bool),
+    String(String),
+}
+
+
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum ExprKind {
     Int,
@@ -25,6 +36,8 @@ pub enum ExprKind {
     Bool,
     String,
     Identity,
+    AccessConstant,
+    AccessAttribute,
     Reference,
     Logical,
     Comparison,
@@ -60,6 +73,20 @@ impl ExprNode {
         ExprNode::List(ListNode { elements })
     }
 
+    pub fn access_constant(index: ExprNode, value: ExprNode) -> ExprNode {
+        ExprNode::AccessConstant(AccessConstantNode {
+            index: Box::new(index),
+            value: Box::new(value),
+        })
+    }
+
+    pub fn access_attribute(index: ExprNode, value: ExprNode) -> ExprNode {
+        ExprNode::AccessAttribute(AccessAttributeNode {
+            index: Box::new(index),
+            value: Box::new(value),
+        })
+    }
+
     pub fn binary(op: token::TokenKind, left: ExprNode, right: ExprNode) -> ExprNode {
         ExprNode::Binary(BinaryNode {
             operator: op,
@@ -84,6 +111,31 @@ impl ExprNode {
         })
     }
 
+    pub fn func_call(identity: ExprNode, args: Vec<ExprNode>) -> ExprNode {
+        ExprNode::FuncCall(FuncCallNode {
+            identity: Box::new(identity),
+            args,
+        })
+    }
+
+    pub fn identity(value: ExprNode) -> ExprNode {
+        ExprNode::Identity(IdentityNode {
+            value: Box::new(value),
+        })
+    }
+
+    pub fn reference(identity: IdentityNode) -> ExprNode {
+        ExprNode::Reference(ReferenceNode::new(identity))
+    }
+
+    pub fn assign(identity: IdentityNode, value: ExprNode, return_after: bool) -> ExprNode {
+        ExprNode::Assign(AssignNode {
+            identity,
+            value: Box::new(value),
+            return_after,
+        })
+    }
+
     pub fn kind(&self) -> ExprKind {
         match self {
             ExprNode::Int(_) => ExprKind::Int,
@@ -99,29 +151,25 @@ impl ExprNode {
             ExprNode::List(_) => ExprKind::List,
             ExprNode::Logical(_) => ExprKind::Logical,
             ExprNode::Comparison(_) => ExprKind::Comparison,
+            ExprNode::AccessConstant(_) => ExprKind::AccessConstant,
+            ExprNode::AccessAttribute(_) => ExprKind::AccessAttribute,
         }
     }
-    pub fn is_primitive(&self) -> bool {
+    pub fn is_literal(&self) -> bool {
         matches!(
             self,
             ExprNode::Bool(_) | ExprNode::Int(_) | ExprNode::Float(_) | ExprNode::String(_)
         )
     }
-}
-
-#[derive(Clone, Debug)]
-pub struct IdentityNode {
-    pub address: Vec<ExprNode>,
-}
-
-#[derive(Clone, Debug)]
-pub struct ReferenceNode {
-    pub identity: IdentityNode,
-}
-
-impl ReferenceNode {
-    pub fn new(identity: IdentityNode) -> Self {
-        Self { identity }
+    
+    pub fn to_literal(&self) -> LiteralNode {
+        match self {
+            ExprNode::Bool(value) => LiteralNode::Bool(*value),
+            ExprNode::Int(value) => LiteralNode::Int(*value),
+            ExprNode::Float(value) => LiteralNode::Float(*value),
+            ExprNode::String(value) => LiteralNode::String(value.to_owned()),
+            _ => panic!("Cannot convert to literal"),
+        }
     }
 }
 
@@ -134,7 +182,7 @@ pub struct BinaryNode {
 
 #[derive(Clone, Debug)]
 pub struct FuncCallNode {
-    pub identity: IdentityNode,
+    pub identity: Box<ExprNode>,
     pub args: Vec<ExprNode>,
 }
 
@@ -173,4 +221,32 @@ pub struct ComparisonNode {
     pub operator: token::TokenKind,
     pub left: Box<ExprNode>,
     pub right: Box<ExprNode>,
+}
+
+#[derive(Clone, Debug)]
+pub struct AccessConstantNode {
+    pub index: Box<ExprNode>,
+    pub value: Box<ExprNode>,
+}
+
+#[derive(Clone, Debug)]
+pub struct AccessAttributeNode {
+    pub index: Box<ExprNode>,
+    pub value: Box<ExprNode>,
+}
+
+#[derive(Clone, Debug)]
+pub struct IdentityNode {
+    pub value: Box<ExprNode>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ReferenceNode {
+    pub identity: IdentityNode,
+}
+
+impl ReferenceNode {
+    pub fn new(identity: IdentityNode) -> Self {
+        Self { identity }
+    }
 }
