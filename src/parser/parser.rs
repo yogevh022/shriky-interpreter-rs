@@ -4,6 +4,7 @@ use crate::parser::nodes::ExprKind::Logical;
 use crate::parser::nodes::*;
 use ordered_float::OrderedFloat;
 use std::collections::{HashMap, HashSet};
+use std::mem;
 
 pub struct Parser<'a> {
     lexer: &'a mut Lexer<'a>,
@@ -25,7 +26,7 @@ impl<'a> Parser<'a> {
             (TokenKind::String, Parser::handle_string),
             (TokenKind::True, Parser::handle_boolean),
             (TokenKind::False, Parser::handle_boolean),
-            (TokenKind::Identifier, Parser::handle_base_identity),
+            (TokenKind::Identifier, Parser::handle_identity),
             (TokenKind::Minus, Parser::handle_minus),
             (TokenKind::Ampersand, Parser::handle_ampersand),
             (TokenKind::LeftParen, Parser::handle_paren),
@@ -132,26 +133,21 @@ impl<'a> Parser<'a> {
         ExprNode::string(self.current_token.value.clone())
     }
 
-    fn handle_base_identity(&mut self) -> ExprNode {
-        let identity_value = self.get_current_token_string();
+    fn handle_identity(&mut self) -> ExprNode {
+        let mut address = vec![self.get_current_token_string()];
         self.eat(TokenKind::Identifier);
-        self.handle_identity(identity_value)
-    }
-
-    fn handle_identity(&mut self, index: ExprNode) -> ExprNode {
-        let mut index = index;
         while matches!(
             self.current_token.kind,
             TokenKind::Dot | TokenKind::LeftBracket | TokenKind::LeftParen
         ) {
-            index = match self.current_token.kind {
-                TokenKind::Dot => self.handle_access_attribute(index),
-                TokenKind::LeftBracket => self.handle_access_constant(index),
-                TokenKind::LeftParen => self.handle_func_call(index),
+            match self.current_token.kind {
+                TokenKind::Dot => self.push_address_access_attribute(&mut address),
+                TokenKind::LeftBracket => self.push_address_access_constant(&mut address),
+                TokenKind::LeftParen => self.push_address_func_call(&mut address),
                 _ => unreachable!(),
             };
         }
-        let identity = ExprNode::identity(index);
+        let identity = ExprNode::identity(address);
         if matches!(
             self.current_token.kind,
             TokenKind::Increment | TokenKind::Decrement
@@ -161,25 +157,26 @@ impl<'a> Parser<'a> {
         identity
     }
 
-    fn handle_access_attribute(&mut self, index: ExprNode) -> ExprNode {
+    fn push_address_access_attribute(&mut self, address: &mut Vec<ExprNode>) {
         self.eat(TokenKind::Dot);
         let accessed_attr = self.get_current_token_string();
         self.eat(TokenKind::Identifier);
-        self.handle_identity(ExprNode::access_attribute(index, accessed_attr))
+        address.push(ExprNode::access_attribute(accessed_attr));
     }
 
-    fn handle_access_constant(&mut self, index: ExprNode) -> ExprNode {
+    fn push_address_access_constant(&mut self, address: &mut Vec<ExprNode>) {
         self.eat(TokenKind::LeftBracket);
         let expr = self.expr();
         self.eat(TokenKind::RightBracket);
-        self.handle_identity(ExprNode::access_constant(index, expr))
+        address.push(ExprNode::access_constant(expr));
     }
 
-    fn handle_func_call(&mut self, identity: ExprNode) -> ExprNode {
+    fn push_address_func_call(&mut self, address: &mut Vec<ExprNode>) {
         self.eat(TokenKind::LeftParen);
         let args = self.get_args(TokenKind::RightParen);
         self.eat(TokenKind::RightParen);
-        ExprNode::func_call(identity, args)
+        let func_call_identity = ExprNode::identity(mem::take(address));
+        *address = vec![ExprNode::func_call(func_call_identity, args)]
     }
 
     fn handle_object(&mut self) -> ExprNode {

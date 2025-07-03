@@ -10,7 +10,7 @@ pub enum ExprNode {
     Bool(BoolNode),
     String(StringNode),
     Identity(IdentityNode),
-    AccessLiteral(AccessLiteralNode),
+    AccessLiteral(AccessConstantNode),
     AccessAttribute(AccessAttributeNode),
     Reference(ReferenceNode),
     Logical(LogicalNode),
@@ -113,18 +113,16 @@ impl ExprNode {
         })
     }
 
-    pub fn access_constant(index: ExprNode, value: ExprNode) -> ExprNode {
-        ExprNode::AccessLiteral(AccessLiteralNode {
+    pub fn access_constant(value: ExprNode) -> ExprNode {
+        ExprNode::AccessLiteral(AccessConstantNode {
             id: NODE_ID_COUNTER.next(),
-            index: Box::new(index),
             value: Box::new(value),
         })
     }
 
-    pub fn access_attribute(index: ExprNode, value: ExprNode) -> ExprNode {
+    pub fn access_attribute(value: ExprNode) -> ExprNode {
         ExprNode::AccessAttribute(AccessAttributeNode {
             id: NODE_ID_COUNTER.next(),
-            index: Box::new(index),
             value: Box::new(value),
         })
     }
@@ -164,10 +162,10 @@ impl ExprNode {
         })
     }
 
-    pub fn identity(value: ExprNode) -> ExprNode {
+    pub fn identity(address: Vec<ExprNode>) -> ExprNode {
         ExprNode::Identity(IdentityNode {
             id: NODE_ID_COUNTER.next(),
-            value: Box::new(value),
+            address,
         })
     }
 
@@ -292,23 +290,21 @@ pub struct ComparisonNode {
 }
 
 #[derive(Clone, Debug)]
-pub struct AccessLiteralNode {
+pub struct AccessConstantNode {
     pub id: usize,
-    pub index: Box<ExprNode>,
     pub value: Box<ExprNode>,
 }
 
 #[derive(Clone, Debug)]
 pub struct AccessAttributeNode {
     pub id: usize,
-    pub index: Box<ExprNode>,
     pub value: Box<ExprNode>,
 }
 
 #[derive(Clone, Debug)]
 pub struct IdentityNode {
     pub id: usize,
-    pub value: Box<ExprNode>,
+    pub address: Vec<ExprNode>,
 }
 
 #[derive(Clone, Debug)]

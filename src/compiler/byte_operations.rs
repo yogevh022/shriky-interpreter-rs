@@ -10,8 +10,21 @@ pub enum ByteOperation {
     Call = 0x06,
     Pop = 0x07,
     StoreName = 0x08,
-    AccessLiteral = 0x09,
+    BinarySubscribe = 0x09,
     Assign = 0x0A,
+    Sub = 0x0B,
+    Div = 0x0C,
+    Mul = 0x0D,
+    Negate = 0x0E,
+    Not = 0x0F,
+    Greater = 0x10,
+    Less = 0x11,
+    GreaterEqual = 0x12,
+    LessEqual = 0x13,
+    Equal = 0x14,
+    Exp = 0x15,
+    Mod = 0x16,
+    IntDiv = 0x17,
 }
 
 #[derive(Clone, Copy)]
@@ -23,6 +36,10 @@ pub struct OperationIndex {
 impl OperationIndex {
     pub fn new(operation: ByteOperation, index: usize) -> Self {
         Self { operation, index }
+    }
+
+    pub fn hex(&self) -> String {
+        format!("0x{:02X} {}", self.operation as u8, self.index)
     }
 }
 
