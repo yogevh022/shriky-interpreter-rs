@@ -16,10 +16,14 @@ pub enum ExprNode {
     Logical(LogicalNode),
     Comparison(ComparisonNode),
     Binary(BinaryNode),
-    FuncCall(FuncCallNode),
+    FuncCall(FunctionCallNode),
     Assign(AssignNode),
     Object(ObjectNode),
     List(ListNode),
+    Function(FunctionNode),
+    Return(ReturnNode),
+    While(WhileNode),
+    Null(NullNode),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -39,6 +43,10 @@ pub enum ExprKind {
     Assign,
     Object,
     List,
+    Function,
+    Return,
+    While,
+    Null,
 }
 
 static NODE_ID_COUNTER: Counter = Counter::new();
@@ -61,6 +69,10 @@ impl ExprNode {
             ExprNode::Comparison(_) => ExprKind::Comparison,
             ExprNode::AccessLiteral(_) => ExprKind::AccessConstant,
             ExprNode::AccessAttribute(_) => ExprKind::AccessAttribute,
+            ExprNode::Function(_) => ExprKind::Function,
+            ExprNode::Return(_) => ExprKind::Return,
+            ExprNode::While(_) => ExprKind::While,
+            ExprNode::Null(_) => ExprKind::Null,
         }
     }
 
@@ -155,10 +167,10 @@ impl ExprNode {
     }
 
     pub fn func_call(identity: ExprNode, args: Vec<ExprNode>) -> ExprNode {
-        ExprNode::FuncCall(FuncCallNode {
+        ExprNode::FuncCall(FunctionCallNode {
             id: NODE_ID_COUNTER.next(),
             identity: Box::new(identity),
-            args,
+            arguments: args,
         })
     }
 
@@ -184,6 +196,33 @@ impl ExprNode {
             return_after,
         })
     }
+
+    pub fn function(arguments: Vec<String>, body: Vec<ExprNode>) -> ExprNode {
+        ExprNode::Function(FunctionNode {
+            id: NODE_ID_COUNTER.next(),
+            arguments,
+            body,
+        })
+    }
+
+    pub fn return_n(value: ExprNode) -> ExprNode {
+        ExprNode::Return(ReturnNode {
+            id: NODE_ID_COUNTER.next(),
+            value: Box::new(value),
+        })
+    }
+
+    pub fn while_n(condition: ExprNode, body: Vec<ExprNode>) -> ExprNode {
+        ExprNode::While(WhileNode {
+            id: NODE_ID_COUNTER.next(),
+            condition: Box::new(condition),
+            body,
+        })
+    }
+
+    pub fn null() -> ExprNode {
+        ExprNode::Null(NullNode {})
+    }
 }
 
 impl HasId for ExprNode {
@@ -204,6 +243,10 @@ impl HasId for ExprNode {
             ExprNode::Comparison(node) => node.id,
             ExprNode::AccessLiteral(node) => node.id,
             ExprNode::AccessAttribute(node) => node.id,
+            ExprNode::Function(node) => node.id,
+            ExprNode::Return(node) => node.id,
+            ExprNode::While(node) => node.id,
+            ExprNode::Null(_) => 0,
         }
     }
 }
@@ -241,10 +284,10 @@ pub struct BinaryNode {
 }
 
 #[derive(Clone, Debug)]
-pub struct FuncCallNode {
+pub struct FunctionCallNode {
     pub id: usize,
     pub identity: Box<ExprNode>,
-    pub args: Vec<ExprNode>,
+    pub arguments: Vec<ExprNode>,
 }
 
 #[derive(Clone, Debug)]
@@ -307,8 +350,40 @@ pub struct IdentityNode {
     pub address: Vec<ExprNode>,
 }
 
+impl IdentityNode {
+    pub fn new(address: Vec<ExprNode>) -> Self {
+        Self {
+            id: NODE_ID_COUNTER.next(),
+            address,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ReferenceNode {
     pub id: usize,
     pub identity: IdentityNode,
 }
+
+#[derive(Clone, Debug)]
+pub struct FunctionNode {
+    pub id: usize,
+    pub arguments: Vec<String>,
+    pub body: Vec<ExprNode>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ReturnNode {
+    pub id: usize,
+    pub value: Box<ExprNode>,
+}
+
+#[derive(Clone, Debug)]
+pub struct WhileNode {
+    pub id: usize,
+    pub condition: Box<ExprNode>,
+    pub body: Vec<ExprNode>,
+}
+
+#[derive(Clone, Debug)]
+pub struct NullNode {}

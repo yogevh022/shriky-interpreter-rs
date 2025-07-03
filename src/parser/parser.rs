@@ -29,8 +29,11 @@ impl<'a> Parser<'a> {
             (TokenKind::Identifier, Parser::handle_identity),
             (TokenKind::Minus, Parser::handle_minus),
             (TokenKind::Ampersand, Parser::handle_ampersand),
+            (TokenKind::Function, Parser::handle_function),
+            (TokenKind::While, Parser::handle_while),
+            (TokenKind::Return, Parser::handle_return),
             (TokenKind::LeftParen, Parser::handle_paren),
-            (TokenKind::LeftBracket, Parser::handle_array),
+            (TokenKind::LeftBracket, Parser::handle_list),
             (TokenKind::LeftCurly, Parser::handle_object),
             (TokenKind::Increment, Parser::handle_increment_decrement_pre),
             (TokenKind::Decrement, Parser::handle_increment_decrement_pre),
@@ -197,7 +200,7 @@ impl<'a> Parser<'a> {
         ExprNode::object(object_properties)
     }
 
-    fn handle_array(&mut self) -> ExprNode {
+    fn handle_list(&mut self) -> ExprNode {
         self.eat(TokenKind::LeftBracket);
         let elements = self.get_args(TokenKind::RightBracket);
         self.eat(TokenKind::RightBracket);
@@ -223,6 +226,55 @@ impl<'a> Parser<'a> {
             return ExprNode::assign(identity_node, binary, false);
         }
         panic!("Increment / Decrement operation can only be applied to identities.")
+    }
+
+    fn parse_function_definition_args(&mut self) -> Vec<String> {
+        self.get_args(TokenKind::RightParen)
+            .into_iter()
+            .map(|arg_expr| match arg_expr {
+                ExprNode::Identity(arg) if arg.address.len() == 1 => match arg.address.first() {
+                    Some(ExprNode::String(string_arg)) => string_arg.value.clone(),
+                    _ => panic!("Function argument identity must be a string"),
+                },
+                _ => panic!("Function argument must be a simple identity"),
+            })
+            .collect()
+    }
+
+    fn handle_function(&mut self) -> ExprNode {
+        self.eat(TokenKind::Function);
+
+        let func_name = self.get_current_token_string();
+        self.eat(TokenKind::Identifier);
+
+        self.eat(TokenKind::LeftParen);
+        let string_args = self.parse_function_definition_args();
+        self.eat(TokenKind::RightParen);
+
+        self.eat(TokenKind::LeftCurly);
+        let func_node = ExprNode::function(string_args, self.parse(TokenKind::RightCurly));
+        self.eat(TokenKind::RightCurly);
+
+        ExprNode::assign(IdentityNode::new(vec![func_name]), func_node, true)
+    }
+
+    fn handle_return(&mut self) -> ExprNode {
+        self.eat(TokenKind::Return);
+        let return_value = if self.current_token.kind == TokenKind::Semicolon {
+            ExprNode::null()
+        } else {
+            self.expr()
+        };
+        ExprNode::return_n(return_value)
+    }
+
+    fn handle_while(&mut self) -> ExprNode {
+        self.eat(TokenKind::While);
+        let condition = self.expr();
+        self.eat(TokenKind::LeftCurly);
+        let body = self.parse(TokenKind::RightCurly);
+        self.eat(TokenKind::RightCurly);
+        ExprNode::while_n(condition, body)
     }
 
     fn handle_assign(&mut self, node: ExprNode) -> ExprNode {
@@ -339,21 +391,26 @@ impl<'a> Parser<'a> {
         node
     }
 
-    fn logical(&mut self) -> ExprNode {
+    fn logical_and(&mut self) -> ExprNode {
         let mut node = self.equality();
-        while matches!(
-            self.current_token.kind,
-            TokenKind::LogicalAND | TokenKind::LogicalOR
-        ) {
-            let token_kind = self.current_token.kind;
-            self.eat(token_kind);
-            node = ExprNode::logical(token_kind, node, self.equality())
+        while self.current_token.kind == TokenKind::LogicalAND {
+            self.eat(self.current_token.kind);
+            node = ExprNode::logical(TokenKind::LogicalAND, node, self.equality())
+        }
+        node
+    }
+
+    fn logical_or(&mut self) -> ExprNode {
+        let mut node = self.logical_and();
+        while self.current_token.kind == TokenKind::LogicalOR {
+            self.eat(self.current_token.kind);
+            node = ExprNode::logical(TokenKind::LogicalOR, node, self.equality())
         }
         node
     }
 
     fn assign(&mut self) -> ExprNode {
-        let mut node = self.logical();
+        let mut node = self.logical_or();
         if self
             .assignment_token_kinds
             .contains(&self.current_token.kind)
@@ -367,9 +424,9 @@ impl<'a> Parser<'a> {
         self.assign()
     }
 
-    pub fn parse(&mut self) -> Vec<ExprNode> {
+    pub fn parse(&mut self, closing_token: TokenKind) -> Vec<ExprNode> {
         let mut ast: Vec<ExprNode> = Vec::new();
-        while self.current_token.kind != TokenKind::EOF {
+        while self.current_token.kind != closing_token {
             if self.current_token.kind == TokenKind::Semicolon {
                 self.eat(TokenKind::Semicolon);
                 continue;

@@ -1,25 +1,27 @@
+use crate::compiler::Compiler;
+use crate::lexer::TokenKind;
+
 mod compiler;
 mod lexer;
 mod parser;
 mod utils;
 
 fn main() {
-    let source: String = String::from("a=2*1+1");
+    // let source: String = String::from("fn rage(arg1, arg2) {}");
+    let source = std::fs::read_to_string("input/pik.txt").unwrap();
     let mut lex = lexer::Lexer::new(&source);
     let mut parser = parser::Parser::new(&mut lex);
-    let ast = parser.parse();
-    for a in ast.iter() {
-        println!("{:?}", a);
-    }
-    let mut compiler = compiler::Compiler::new();
-    let bytecode = compiler.compile_expr(ast.get(0).unwrap().clone());
-    println!("bytecode: {:?}", bytecode);
+    let ast = parser.parse(TokenKind::EOF);
+    let code_obj = Compiler::compile(ast);
+    println!("bytecode: {:?}", code_obj.operations);
     println!(
         "hex: {:?}",
-        bytecode
+        code_obj
+            .operations
             .iter()
             .map(|item| item.hex())
             .collect::<Vec<String>>()
             .join(" ")
     );
+    println!("constants: {:?}", code_obj.constants)
 }

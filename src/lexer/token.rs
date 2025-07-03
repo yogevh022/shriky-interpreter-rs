@@ -52,7 +52,7 @@ pub enum TokenKind {
     While,
     Break,
     Continue,
-    Fn,
+    Function,
     Return,
     Null,
 

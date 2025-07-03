@@ -1,0 +1,5 @@
+fn techno(arg1, arg2) {
+    a = 42
+    return arg1 + arg2
+}
+a = 3

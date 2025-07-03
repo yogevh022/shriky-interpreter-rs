@@ -4,9 +4,9 @@ use std::fmt;
 pub enum ByteOperation {
     LoadName = 0x01,
     LoadGlobal = 0x02,
-    LoadLiteral = 0x03,
+    LoadConstant = 0x03,
     Add = 0x04,
-    Return = 0x05,
+    ReturnValue = 0x05,
     Call = 0x06,
     Pop = 0x07,
     StoreName = 0x08,
@@ -34,8 +34,15 @@ pub struct OperationIndex {
 }
 
 impl OperationIndex {
-    pub fn new(operation: ByteOperation, index: usize) -> Self {
+    pub fn with_operand(operation: ByteOperation, index: usize) -> Self {
         Self { operation, index }
+    }
+
+    pub fn without_operand(operation: ByteOperation) -> Self {
+        Self {
+            operation,
+            index: 0,
+        }
     }
 
     pub fn hex(&self) -> String {

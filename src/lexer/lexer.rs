@@ -21,7 +21,7 @@ impl<'a> Lexer<'a> {
             ("while", token::TokenKind::While),
             ("break", token::TokenKind::Break),
             ("continue", token::TokenKind::Continue),
-            ("fn", token::TokenKind::Fn),
+            ("fn", token::TokenKind::Function),
             ("return", token::TokenKind::Return),
             ("null", token::TokenKind::Null),
         ]);
