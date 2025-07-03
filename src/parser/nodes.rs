@@ -1,14 +1,16 @@
 use crate::lexer::token;
+use crate::parser::traits::HasId;
+use crate::utils::counter::Counter;
 use ordered_float::OrderedFloat;
 
 #[derive(Clone, Debug)]
 pub enum ExprNode {
-    Int(i64),
-    Float(OrderedFloat<f64>),
-    Bool(bool),
-    String(String),
+    Int(IntNode),
+    Float(FloatNode),
+    Bool(BoolNode),
+    String(StringNode),
     Identity(IdentityNode),
-    AccessConstant(AccessConstantNode),
+    AccessLiteral(AccessLiteralNode),
     AccessAttribute(AccessAttributeNode),
     Reference(ReferenceNode),
     Logical(LogicalNode),
@@ -19,15 +21,6 @@ pub enum ExprNode {
     Object(ObjectNode),
     List(ListNode),
 }
-
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum LiteralNode {
-    Int(i64),
-    Float(OrderedFloat<f64>),
-    Bool(bool),
-    String(String),
-}
-
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum ExprKind {
@@ -48,94 +41,9 @@ pub enum ExprKind {
     List,
 }
 
+static NODE_ID_COUNTER: Counter = Counter::new();
+
 impl ExprNode {
-    pub fn int(value: i64) -> ExprNode {
-        ExprNode::Int(value)
-    }
-
-    pub fn float<T: Into<OrderedFloat<f64>>>(value: T) -> ExprNode {
-        ExprNode::Float(value.into())
-    }
-
-    pub fn bool(value: bool) -> ExprNode {
-        ExprNode::Bool(value)
-    }
-
-    pub fn string(value: String) -> ExprNode {
-        ExprNode::String(value)
-    }
-
-    pub fn object(properties: Vec<ObjectProperty>) -> ExprNode {
-        ExprNode::Object(ObjectNode { properties })
-    }
-
-    pub fn list(elements: Vec<ExprNode>) -> ExprNode {
-        ExprNode::List(ListNode { elements })
-    }
-
-    pub fn access_constant(index: ExprNode, value: ExprNode) -> ExprNode {
-        ExprNode::AccessConstant(AccessConstantNode {
-            index: Box::new(index),
-            value: Box::new(value),
-        })
-    }
-
-    pub fn access_attribute(index: ExprNode, value: ExprNode) -> ExprNode {
-        ExprNode::AccessAttribute(AccessAttributeNode {
-            index: Box::new(index),
-            value: Box::new(value),
-        })
-    }
-
-    pub fn binary(op: token::TokenKind, left: ExprNode, right: ExprNode) -> ExprNode {
-        ExprNode::Binary(BinaryNode {
-            operator: op,
-            left: Box::new(left),
-            right: Box::new(right),
-        })
-    }
-
-    pub fn comparison(op: token::TokenKind, left: ExprNode, right: ExprNode) -> ExprNode {
-        ExprNode::Comparison(ComparisonNode {
-            operator: op,
-            left: Box::new(left),
-            right: Box::new(right),
-        })
-    }
-
-    pub fn logical(op: token::TokenKind, left: ExprNode, right: ExprNode) -> ExprNode {
-        ExprNode::Logical(LogicalNode {
-            operator: op,
-            left: Box::new(left),
-            right: Box::new(right),
-        })
-    }
-
-    pub fn func_call(identity: ExprNode, args: Vec<ExprNode>) -> ExprNode {
-        ExprNode::FuncCall(FuncCallNode {
-            identity: Box::new(identity),
-            args,
-        })
-    }
-
-    pub fn identity(value: ExprNode) -> ExprNode {
-        ExprNode::Identity(IdentityNode {
-            value: Box::new(value),
-        })
-    }
-
-    pub fn reference(identity: IdentityNode) -> ExprNode {
-        ExprNode::Reference(ReferenceNode::new(identity))
-    }
-
-    pub fn assign(identity: IdentityNode, value: ExprNode, return_after: bool) -> ExprNode {
-        ExprNode::Assign(AssignNode {
-            identity,
-            value: Box::new(value),
-            return_after,
-        })
-    }
-
     pub fn kind(&self) -> ExprKind {
         match self {
             ExprNode::Int(_) => ExprKind::Int,
@@ -151,30 +59,184 @@ impl ExprNode {
             ExprNode::List(_) => ExprKind::List,
             ExprNode::Logical(_) => ExprKind::Logical,
             ExprNode::Comparison(_) => ExprKind::Comparison,
-            ExprNode::AccessConstant(_) => ExprKind::AccessConstant,
+            ExprNode::AccessLiteral(_) => ExprKind::AccessConstant,
             ExprNode::AccessAttribute(_) => ExprKind::AccessAttribute,
         }
     }
+
     pub fn is_literal(&self) -> bool {
         matches!(
             self,
             ExprNode::Bool(_) | ExprNode::Int(_) | ExprNode::Float(_) | ExprNode::String(_)
         )
     }
-    
-    pub fn to_literal(&self) -> LiteralNode {
+
+    pub fn int(value: i64) -> ExprNode {
+        ExprNode::Int(IntNode {
+            id: NODE_ID_COUNTER.next(),
+            value,
+        })
+    }
+
+    pub fn float<T: Into<OrderedFloat<f64>>>(value: T) -> ExprNode {
+        ExprNode::Float(FloatNode {
+            id: NODE_ID_COUNTER.next(),
+            value: value.into(),
+        })
+    }
+
+    pub fn bool(value: bool) -> ExprNode {
+        ExprNode::Bool(BoolNode {
+            id: NODE_ID_COUNTER.next(),
+            value,
+        })
+    }
+
+    pub fn string(value: String) -> ExprNode {
+        ExprNode::String(StringNode {
+            id: NODE_ID_COUNTER.next(),
+            value,
+        })
+    }
+
+    pub fn object(properties: Vec<ObjectProperty>) -> ExprNode {
+        ExprNode::Object(ObjectNode {
+            id: NODE_ID_COUNTER.next(),
+            properties,
+        })
+    }
+
+    pub fn list(elements: Vec<ExprNode>) -> ExprNode {
+        ExprNode::List(ListNode {
+            id: NODE_ID_COUNTER.next(),
+            elements,
+        })
+    }
+
+    pub fn access_constant(index: ExprNode, value: ExprNode) -> ExprNode {
+        ExprNode::AccessLiteral(AccessLiteralNode {
+            id: NODE_ID_COUNTER.next(),
+            index: Box::new(index),
+            value: Box::new(value),
+        })
+    }
+
+    pub fn access_attribute(index: ExprNode, value: ExprNode) -> ExprNode {
+        ExprNode::AccessAttribute(AccessAttributeNode {
+            id: NODE_ID_COUNTER.next(),
+            index: Box::new(index),
+            value: Box::new(value),
+        })
+    }
+
+    pub fn binary(op: token::TokenKind, left: ExprNode, right: ExprNode) -> ExprNode {
+        ExprNode::Binary(BinaryNode {
+            id: NODE_ID_COUNTER.next(),
+            operator: op,
+            left: Box::new(left),
+            right: Box::new(right),
+        })
+    }
+
+    pub fn comparison(op: token::TokenKind, left: ExprNode, right: ExprNode) -> ExprNode {
+        ExprNode::Comparison(ComparisonNode {
+            id: NODE_ID_COUNTER.next(),
+            operator: op,
+            left: Box::new(left),
+            right: Box::new(right),
+        })
+    }
+
+    pub fn logical(op: token::TokenKind, left: ExprNode, right: ExprNode) -> ExprNode {
+        ExprNode::Logical(LogicalNode {
+            id: NODE_ID_COUNTER.next(),
+            operator: op,
+            left: Box::new(left),
+            right: Box::new(right),
+        })
+    }
+
+    pub fn func_call(identity: ExprNode, args: Vec<ExprNode>) -> ExprNode {
+        ExprNode::FuncCall(FuncCallNode {
+            id: NODE_ID_COUNTER.next(),
+            identity: Box::new(identity),
+            args,
+        })
+    }
+
+    pub fn identity(value: ExprNode) -> ExprNode {
+        ExprNode::Identity(IdentityNode {
+            id: NODE_ID_COUNTER.next(),
+            value: Box::new(value),
+        })
+    }
+
+    pub fn reference(identity: IdentityNode) -> ExprNode {
+        ExprNode::Reference(ReferenceNode {
+            id: NODE_ID_COUNTER.next(),
+            identity,
+        })
+    }
+
+    pub fn assign(identity: IdentityNode, value: ExprNode, return_after: bool) -> ExprNode {
+        ExprNode::Assign(AssignNode {
+            id: NODE_ID_COUNTER.next(),
+            identity,
+            value: Box::new(value),
+            return_after,
+        })
+    }
+}
+
+impl HasId for ExprNode {
+    fn id(&self) -> usize {
         match self {
-            ExprNode::Bool(value) => LiteralNode::Bool(*value),
-            ExprNode::Int(value) => LiteralNode::Int(*value),
-            ExprNode::Float(value) => LiteralNode::Float(*value),
-            ExprNode::String(value) => LiteralNode::String(value.to_owned()),
-            _ => panic!("Cannot convert to literal"),
+            ExprNode::Int(node) => node.id,
+            ExprNode::Float(node) => node.id,
+            ExprNode::Bool(node) => node.id,
+            ExprNode::String(node) => node.id,
+            ExprNode::Identity(node) => node.id,
+            ExprNode::Reference(node) => node.id,
+            ExprNode::Binary(node) => node.id,
+            ExprNode::FuncCall(node) => node.id,
+            ExprNode::Assign(node) => node.id,
+            ExprNode::Object(node) => node.id,
+            ExprNode::List(node) => node.id,
+            ExprNode::Logical(node) => node.id,
+            ExprNode::Comparison(node) => node.id,
+            ExprNode::AccessLiteral(node) => node.id,
+            ExprNode::AccessAttribute(node) => node.id,
         }
     }
 }
 
 #[derive(Clone, Debug)]
+pub struct IntNode {
+    pub id: usize,
+    pub value: i64,
+}
+
+#[derive(Clone, Debug)]
+pub struct FloatNode {
+    pub id: usize,
+    pub value: OrderedFloat<f64>,
+}
+
+#[derive(Clone, Debug)]
+pub struct BoolNode {
+    pub id: usize,
+    pub value: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct StringNode {
+    pub id: usize,
+    pub value: String,
+}
+
+#[derive(Clone, Debug)]
 pub struct BinaryNode {
+    pub id: usize,
     pub operator: token::TokenKind,
     pub left: Box<ExprNode>,
     pub right: Box<ExprNode>,
@@ -182,12 +244,14 @@ pub struct BinaryNode {
 
 #[derive(Clone, Debug)]
 pub struct FuncCallNode {
+    pub id: usize,
     pub identity: Box<ExprNode>,
     pub args: Vec<ExprNode>,
 }
 
 #[derive(Clone, Debug)]
 pub struct AssignNode {
+    pub id: usize,
     pub identity: IdentityNode,
     pub value: Box<ExprNode>,
     pub return_after: bool,
@@ -195,6 +259,7 @@ pub struct AssignNode {
 
 #[derive(Clone, Debug)]
 pub struct ObjectNode {
+    pub id: usize,
     pub properties: Vec<ObjectProperty>,
 }
 
@@ -206,11 +271,13 @@ pub struct ObjectProperty {
 
 #[derive(Clone, Debug)]
 pub struct ListNode {
+    pub id: usize,
     pub elements: Vec<ExprNode>,
 }
 
 #[derive(Clone, Debug)]
 pub struct LogicalNode {
+    pub id: usize,
     pub operator: token::TokenKind,
     pub left: Box<ExprNode>,
     pub right: Box<ExprNode>,
@@ -218,35 +285,34 @@ pub struct LogicalNode {
 
 #[derive(Clone, Debug)]
 pub struct ComparisonNode {
+    pub id: usize,
     pub operator: token::TokenKind,
     pub left: Box<ExprNode>,
     pub right: Box<ExprNode>,
 }
 
 #[derive(Clone, Debug)]
-pub struct AccessConstantNode {
+pub struct AccessLiteralNode {
+    pub id: usize,
     pub index: Box<ExprNode>,
     pub value: Box<ExprNode>,
 }
 
 #[derive(Clone, Debug)]
 pub struct AccessAttributeNode {
+    pub id: usize,
     pub index: Box<ExprNode>,
     pub value: Box<ExprNode>,
 }
 
 #[derive(Clone, Debug)]
 pub struct IdentityNode {
+    pub id: usize,
     pub value: Box<ExprNode>,
 }
 
 #[derive(Clone, Debug)]
 pub struct ReferenceNode {
+    pub id: usize,
     pub identity: IdentityNode,
-}
-
-impl ReferenceNode {
-    pub fn new(identity: IdentityNode) -> Self {
-        Self { identity }
-    }
 }

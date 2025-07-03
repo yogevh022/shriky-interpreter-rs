@@ -5,7 +5,7 @@ use std::fmt;
 
 #[derive(Eq, Clone, Debug)]
 pub struct IntValue {
-    pub id: u64,
+    pub id: usize,
     pub value: i64,
 }
 
@@ -40,14 +40,14 @@ impl Default for IntValue {
 }
 
 impl HasId for IntValue {
-    fn id(&self) -> u64 {
+    fn id(&self) -> usize {
         self.id
     }
 }
 
 #[derive(Eq, Clone, Debug)]
 pub struct FloatValue {
-    pub id: u64,
+    pub id: usize,
     pub value: OrderedFloat<f64>,
 }
 
@@ -82,14 +82,14 @@ impl PartialEq for FloatValue {
 }
 
 impl HasId for FloatValue {
-    fn id(&self) -> u64 {
+    fn id(&self) -> usize {
         self.id
     }
 }
 
 #[derive(Eq, Clone, Debug)]
 pub struct BoolValue {
-    pub id: u64,
+    pub id: usize,
     pub value: bool,
 }
 
@@ -115,14 +115,14 @@ impl PartialEq for BoolValue {
 }
 
 impl HasId for BoolValue {
-    fn id(&self) -> u64 {
+    fn id(&self) -> usize {
         self.id
     }
 }
 
 #[derive(Eq, Clone, Debug)]
 pub struct StringValue {
-    pub id: u64,
+    pub id: usize,
     pub value: String,
 }
 
@@ -157,7 +157,7 @@ impl PartialEq for StringValue {
 }
 
 impl HasId for StringValue {
-    fn id(&self) -> u64 {
+    fn id(&self) -> usize {
         self.id
     }
 }

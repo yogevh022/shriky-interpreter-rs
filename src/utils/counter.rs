@@ -1,13 +1,17 @@
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
-pub struct Counter;
+pub struct Counter {
+    counter: AtomicUsize,
+}
+
 impl Counter {
-    pub fn new() -> Self {
-        Counter
+    pub const fn new() -> Self {
+        Self {
+            counter: AtomicUsize::new(0),
+        }
     }
 
-    pub fn next(&self) -> u64 {
-        static GLOBAL_COUNTER: AtomicU64 = AtomicU64::new(0);
-        GLOBAL_COUNTER.fetch_add(1, Ordering::Relaxed)
+    pub fn next(&self) -> usize {
+        self.counter.fetch_add(1, Ordering::Relaxed)
     }
 }

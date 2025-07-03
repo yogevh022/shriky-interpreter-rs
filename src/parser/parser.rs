@@ -110,13 +110,7 @@ impl<'a> Parser<'a> {
 
     fn handle_minus(&mut self) -> ExprNode {
         self.eat(TokenKind::Minus);
-        let binary = BinaryNode {
-            operator: TokenKind::Asterisk,
-            left: Box::new(self.expr()),
-            right: Box::new(ExprNode::Int(-1)),
-        };
-        self.eat(self.current_token.kind);
-        ExprNode::Binary(binary)
+        ExprNode::binary(TokenKind::Asterisk, self.expr(), ExprNode::int(-1))
     }
 
     fn handle_ampersand(&mut self) -> ExprNode {
@@ -189,14 +183,12 @@ impl<'a> Parser<'a> {
     }
 
     fn handle_object(&mut self) -> ExprNode {
-        let mut object = ObjectNode {
-            properties: Vec::new(),
-        };
+        let mut object_properties: Vec<ObjectProperty> = Vec::new();
         self.eat(TokenKind::LeftCurly);
         while self.current_token.kind != TokenKind::RightCurly {
             let key = self.expr();
             self.eat(TokenKind::Colon);
-            object.properties.push(ObjectProperty {
+            object_properties.push(ObjectProperty {
                 key,
                 value: self.expr(),
             });
@@ -205,7 +197,7 @@ impl<'a> Parser<'a> {
             }
         }
         self.eat(TokenKind::RightCurly);
-        ExprNode::Object(object)
+        ExprNode::object(object_properties)
     }
 
     fn handle_array(&mut self) -> ExprNode {
@@ -252,23 +244,11 @@ impl<'a> Parser<'a> {
                 .augmented_assignment_to_arithmetic
                 .get(&assignment_type)
             {
-                Some(arithmetic) => {
-                    let binary = BinaryNode {
-                        operator: *arithmetic,
-                        left: Box::new(expr_node),
-                        right: Box::new(value_node),
-                    };
-                    ExprNode::Binary(binary)
-                }
+                Some(arithmetic) => ExprNode::binary(*arithmetic, expr_node, value_node),
                 _ => panic!("Invalid assignment type {:?}", assignment_type),
             }
         };
-        let assign = AssignNode {
-            identity,
-            value: Box::new(value_node),
-            return_after: true,
-        };
-        ExprNode::Assign(assign)
+        ExprNode::assign(identity, value_node, true)
     }
 
     fn handle_paren(&mut self) -> ExprNode {
