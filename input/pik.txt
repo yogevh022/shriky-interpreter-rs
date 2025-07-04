@@ -1,3 +1,5 @@
-a = {"test": 55, "second": 22};
-a["test"] = 11
-z = a["test"]
+fn test() {
+    return 2
+}
+
+a = {3: test(), 2: "test"};

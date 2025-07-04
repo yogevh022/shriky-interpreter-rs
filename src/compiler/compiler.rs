@@ -143,10 +143,7 @@ impl Compiler {
         let head = self.identity_popped_head(code_object, assign_node.identity);
         match head {
             ExprNode::BinarySubscribe(binary_subscribe_node) => {
-                self.compile_expr(
-                    code_object,
-                    *binary_subscribe_node.value,
-                );
+                self.compile_expr(code_object, *binary_subscribe_node.value);
                 self.compile_expr(code_object, *assign_node.value);
                 self.push_op(code_object, OpIndex::without_op(ByteOp::AssignSubscribe));
             }
@@ -177,9 +174,8 @@ impl Compiler {
 
     fn make_function(&mut self, code_object: &mut CodeObject, function_node: FunctionNode) {
         let func_id = function_node.id;
-        let func_obj = self.compile(function_node.body);
-        let func_const_index =
-            Compiler::cache_constant(code_object, func_id, Value::Function(func_obj));
+        let func_value = Value::function(function_node.arguments, self.compile(function_node.body));
+        let func_const_index = Compiler::cache_constant(code_object, func_id, func_value);
         self.push_op(
             code_object,
             OpIndex::with_op(ByteOp::LoadConstant, func_const_index),
@@ -289,7 +285,7 @@ impl Compiler {
     }
 
     pub fn compile(&mut self, ast: Vec<ExprNode>) -> CodeObject {
-        let mut code_object = CodeObject::from_index(self.ip);
+        let mut code_object = CodeObject::default();
         for ast_node in ast.into_iter() {
             self.compile_expr(&mut code_object, ast_node);
         }

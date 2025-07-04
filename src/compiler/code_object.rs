@@ -3,6 +3,7 @@ use crate::parser::ExprNode;
 use ordered_float::OrderedFloat;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -14,7 +15,7 @@ pub enum Value {
     Bool(bool),
     Object(ObjectValue),
     List(ListValue),
-    Function(CodeObject),
+    Function(FunctionValue),
     Null,
 }
 
@@ -37,6 +38,23 @@ pub struct ListValue {
 impl Hash for ListValue {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         unreachable!("Shouldn't be hashing a list value")
+    }
+}
+
+#[derive(Eq, PartialEq, Hash, Clone)]
+pub struct FunctionValue {
+    pub parameters: Vec<String>,
+    pub body: CodeObject,
+}
+
+impl Debug for FunctionValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "<{}>{:?}",
+            self.parameters.join(", "),
+            self.body.operations
+        )
     }
 }
 
@@ -63,6 +81,10 @@ impl Value {
 
     pub fn list(elements: Vec<Rc<RefCell<Value>>>) -> Value {
         Value::List(ListValue { elements })
+    }
+
+    pub fn function(parameters: Vec<String>, body: CodeObject) -> Value {
+        Value::Function(FunctionValue { parameters, body })
     }
 
     pub fn null() -> Value {
@@ -175,7 +197,6 @@ impl Value {
 
 #[derive(Debug, Clone)]
 pub struct CodeObject {
-    pub start_index: usize,
     pub operations: Vec<OpIndex>,
     pub constants: Vec<Rc<RefCell<Value>>>,
     pub variables: Vec<Rc<RefCell<Value>>>,
@@ -184,17 +205,6 @@ pub struct CodeObject {
 }
 
 impl CodeObject {
-    pub fn from_index(start_index: usize) -> CodeObject {
-        CodeObject {
-            start_index,
-            operations: Vec::new(),
-            constants: Vec::new(),
-            variables: Vec::new(),
-            constant_index_lookup: HashMap::new(),
-            variable_index_lookup: HashMap::new(),
-        }
-    }
-
     pub fn push_op(&mut self, op: OpIndex) {
         self.operations.push(op);
     }
@@ -221,7 +231,6 @@ impl Eq for CodeObject {
 impl Default for CodeObject {
     fn default() -> Self {
         Self {
-            start_index: 0,
             operations: Vec::new(),
             constants: Vec::new(),
             variables: Vec::new(),

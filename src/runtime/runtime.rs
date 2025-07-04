@@ -8,7 +8,6 @@ use std::rc::Rc;
 pub struct Runtime {
     memory_stack: Vec<Rc<RefCell<Value>>>,
     scope_stack: Vec<Rc<RefCell<CodeObject>>>,
-    ip: usize,
 }
 
 impl Runtime {
@@ -16,7 +15,6 @@ impl Runtime {
         Self {
             memory_stack: Vec::new(),
             scope_stack: Vec::new(),
-            ip: 0,
         }
     }
 
@@ -44,7 +42,7 @@ impl Runtime {
         let var = scope.variables[operand].clone();
         *var.borrow_mut() = value.borrow().clone();
     }
-    
+
     fn assign_subscribe(&mut self) {
         let value = self.memory_stack.pop().unwrap();
         let key = self.memory_stack.pop().unwrap();
@@ -52,14 +50,43 @@ impl Runtime {
         match &mut *container.borrow_mut() {
             Value::Object(obj) => {
                 obj.properties.insert(key.borrow().clone(), value.clone());
-            },
+            }
             Value::List(list) => {
                 if let Value::Int(index) = key.borrow().clone() {
                     return list.elements.insert(index as usize, value.clone());
                 }
                 panic!("Can only subscribe to lists with integers")
-            },
+            }
             _ => panic!("Invalid type for binary subscribe"),
+        }
+    }
+
+    fn call(&mut self, arg_count: usize) {
+        let func = self.memory_stack.pop().unwrap();
+        match &*func.borrow() {
+            Value::Function(func_value) => {
+                let args: Vec<Rc<RefCell<Value>>> = (0..arg_count)
+                    .map(|_| self.memory_stack.pop().unwrap())
+                    .collect();
+
+                let mut func_code_obj = func_value.clone().body;
+                func_value
+                    .parameters
+                    .iter()
+                    .zip(args.iter().rev())
+                    .for_each(|(p, v)| {
+                        func_code_obj.variables[func_code_obj.variable_index_lookup[p]] = v.clone();
+                    });
+                let func_start_index = self.memory_stack.len();
+                self.run(func_code_obj);
+                let return_value = self
+                    .memory_stack
+                    .pop()
+                    .unwrap_or_else(|| Rc::new(RefCell::new(Value::Null)));
+                self.memory_stack.truncate(func_start_index);
+                self.memory_stack.push(return_value);
+            }
+            _ => panic!("Called uncallable value"),
         }
     }
 
@@ -74,7 +101,8 @@ impl Runtime {
     }
 
     fn execute(&mut self, scope: Rc<RefCell<CodeObject>>) {
-        for byte_op in scope.borrow().operations.iter() {
+        let mut ip = 0;
+        while let Some(byte_op) = scope.borrow().operations.get(ip) {
             match byte_op.operation {
                 ByteOp::LoadConstant => {
                     let constant_value = scope.borrow().constants[byte_op.operand].clone();
@@ -87,6 +115,8 @@ impl Runtime {
                 ByteOp::BinarySubscribe => self.binary_subscribe(),
                 ByteOp::PreAssign => self.pre_assign(&scope.borrow(), byte_op.operand),
                 ByteOp::AssignSubscribe => self.assign_subscribe(),
+                ByteOp::ReturnValue => return,
+                ByteOp::Call => self.call(byte_op.operand),
                 ByteOp::Add => self.apply_bin_op(Value::bin_add),
                 ByteOp::Sub => self.apply_bin_op(Value::bin_sub),
                 ByteOp::Mul => self.apply_bin_op(Value::bin_mul),
@@ -96,6 +126,7 @@ impl Runtime {
                 ByteOp::Exp => self.apply_bin_op(Value::bin_exp),
                 _ => panic!("Unimplemented {:?}", byte_op.operation),
             }
+            ip += 1;
         }
     }
 
@@ -104,18 +135,20 @@ impl Runtime {
         let current_scope = self.scope_stack.last().unwrap().clone();
         self.execute(current_scope);
 
-        println!("mem: {:?}", self.memory_stack);
-        println!(
-            "vars: {:?}",
-            self.scope_stack.last().unwrap().borrow().variables
-        );
-        println!(
-            "consts: {:?}",
-            self.scope_stack.last().unwrap().borrow().constants
-        );
+        self.print_current_stack_status(self.scope_stack.last().unwrap().borrow().clone());
+
+        self.scope_stack.pop();
     }
 
-    pub fn print_code_object(&self, code_obj: CodeObject) {
+    pub fn print_current_stack_status(&self, code_obj: CodeObject) {
+        println!("variables:");
+        self.scope_stack
+            .last()
+            .unwrap()
+            .borrow()
+            .variables
+            .iter()
+            .for_each(|item| println!("var {:?}", item.borrow().clone()));
         println!("bytecode:");
         for (i, val) in code_obj.operations.iter().enumerate() {
             println!("{}: {:?}", i, val);
@@ -129,7 +162,5 @@ impl Runtime {
                 .collect::<Vec<String>>()
                 .join(" ")
         );
-        println!("variables: {:?}", code_obj.variables);
-        println!("constants: {:?}", code_obj.constants)
     }
 }

@@ -15,6 +15,6 @@ fn main() {
     let mut compiler = Compiler::new();
     let code_obj = compiler.compile(ast);
     let mut runtime = runtime::Runtime::new();
-    runtime.print_code_object(code_obj.clone());
+    // runtime.print_code_object(code_obj.clone());
     runtime.run(code_obj);
 }
