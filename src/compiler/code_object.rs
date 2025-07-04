@@ -1,11 +1,12 @@
 use crate::compiler::byte_operations::OpIndex;
 use crate::parser::ExprNode;
-use crate::parser::nodes::FloatNode;
 use ordered_float::OrderedFloat;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::rc::Rc;
 
-#[derive(Eq, Hash, PartialEq, Debug)]
+#[derive(Eq, Hash, PartialEq, Debug, Clone)]
 pub enum Value {
     Int(i64),
     Float(OrderedFloat<f64>),
@@ -17,9 +18,9 @@ pub enum Value {
     Null,
 }
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, Clone)]
 pub struct ObjectValue {
-    pub properties: indexmap::IndexMap<Value, Value>,
+    pub properties: indexmap::IndexMap<Value, Rc<RefCell<Value>>>,
 }
 
 impl Hash for ObjectValue {
@@ -28,9 +29,9 @@ impl Hash for ObjectValue {
     }
 }
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, Clone)]
 pub struct ListValue {
-    pub elements: Vec<Value>,
+    pub elements: Vec<Rc<RefCell<Value>>>,
 }
 
 impl Hash for ListValue {
@@ -56,11 +57,11 @@ impl Value {
         Value::Bool(value)
     }
 
-    pub fn object(properties: indexmap::IndexMap<Value, Value>) -> Value {
+    pub fn object(properties: indexmap::IndexMap<Value, Rc<RefCell<Value>>>) -> Value {
         Value::Object(ObjectValue { properties })
     }
 
-    pub fn list(elements: Vec<Value>) -> Value {
+    pub fn list(elements: Vec<Rc<RefCell<Value>>>) -> Value {
         Value::List(ListValue { elements })
     }
 
@@ -78,7 +79,7 @@ impl Value {
                 object_node.properties.into_iter().for_each(|obj_prop| {
                     obj_props.insert(
                         Value::from_expr(obj_prop.key),
-                        Value::from_expr(obj_prop.value),
+                        Rc::new(RefCell::new(Value::from_expr(obj_prop.value))),
                     );
                 });
                 Value::object(obj_props)
@@ -87,21 +88,97 @@ impl Value {
                 let list_elements = list_node
                     .elements
                     .into_iter()
-                    .map(|list_item| Value::from_expr(list_item))
+                    .map(|list_item| Rc::new(RefCell::new(Value::from_expr(list_item))))
                     .collect();
                 Value::list(list_elements)
             }
             _ => panic!("Invalid expression node type {:?}", expr),
         }
     }
+
+    pub fn bin_add(&self, other: &Value) -> Value {
+        match (self, other) {
+            (Value::Int(a), Value::Int(b)) => Value::Int(a + b),
+            (Value::Int(a), Value::Float(b)) => Value::Float(OrderedFloat(*a as f64) + *b),
+            (Value::Float(a), Value::Int(b)) => Value::Float(*a + OrderedFloat(*b as f64)),
+            (Value::Float(a), Value::Float(b)) => Value::Float(*a + *b),
+            (Value::String(a), Value::String(b)) => Value::String(format!("{}{}", a, b)),
+            _ => panic!("Invalid binary operation"),
+        }
+    }
+
+    pub fn bin_sub(&self, other: &Value) -> Value {
+        match (self, other) {
+            (Value::Int(a), Value::Int(b)) => Value::int(a - b),
+            (Value::Int(a), Value::Float(b)) => Value::float(*a as f64 - **b),
+            (Value::Float(a), Value::Int(b)) => Value::float(*a - *b as f64),
+            (Value::Float(a), Value::Float(b)) => Value::float(*a - *b),
+            _ => panic!("Invalid binary operation"),
+        }
+    }
+
+    pub fn bin_div(&self, other: &Value) -> Value {
+        match (self, other) {
+            (Value::Int(a), Value::Int(b)) => Value::float(*a as f64 / *b as f64),
+            (Value::Int(a), Value::Float(b)) => Value::float(*a as f64 / **b),
+            (Value::Float(a), Value::Int(b)) => Value::float(*a / *b as f64),
+            (Value::Float(a), Value::Float(b)) => Value::float(*a / *b),
+            _ => panic!("Invalid binary operation"),
+        }
+    }
+
+    pub fn bin_int_div(&self, other: &Value) -> Value {
+        match (self, other) {
+            (Value::Int(a), Value::Int(b)) => Value::int(a / b),
+            (Value::Int(a), Value::Float(b)) => Value::float((*a as f64 / **b).floor()),
+            (Value::Float(a), Value::Int(b)) => Value::float((*a / *b as f64).floor()),
+            (Value::Float(a), Value::Float(b)) => Value::float((*a / *b).floor()),
+            _ => panic!("Invalid binary operation"),
+        }
+    }
+
+    pub fn bin_mul(&self, other: &Value) -> Value {
+        match (self, other) {
+            (Value::Int(a), Value::Int(b)) => Value::int(a * b),
+            (Value::Int(a), Value::Float(b)) => Value::float(*a as f64 * **b),
+            (Value::Float(a), Value::Int(b)) => Value::float(*a * *b as f64),
+            (Value::Float(a), Value::Float(b)) => Value::float(*a * *b),
+            _ => panic!("Invalid binary operation"),
+        }
+    }
+
+    pub fn bin_exp(&self, other: &Value) -> Value {
+        match (self, other) {
+            (Value::Int(a), Value::Int(b)) => {
+                if *b < 0 {
+                    return Value::float((*a as f64).powf(-b as f64));
+                }
+                Value::int(a.pow(*b as u32))
+            }
+            (Value::Int(a), Value::Float(b)) => Value::float((*a as f64).powf(**b)),
+            (Value::Float(a), Value::Int(b)) => Value::float(a.powf(*b as f64)),
+            (Value::Float(a), Value::Float(b)) => Value::float(a.powf(**b)),
+            _ => panic!("Invalid binary operation"),
+        }
+    }
+
+    pub fn bin_mod(&self, other: &Value) -> Value {
+        match (self, other) {
+            (Value::Int(a), Value::Int(b)) => Value::int(a % b),
+            (Value::Int(a), Value::Float(b)) => Value::float(*a as f64 % **b),
+            (Value::Float(a), Value::Int(b)) => Value::float(*a % *b as f64),
+            (Value::Float(a), Value::Float(b)) => Value::float(*a % *b),
+            _ => panic!("Invalid binary operation"),
+        }
+    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CodeObject {
     pub start_index: usize,
     pub operations: Vec<OpIndex>,
-    pub constants: Vec<Value>,
-    pub variables: Vec<String>,
+    pub constants: Vec<Rc<RefCell<Value>>>,
+    pub variables: Vec<Rc<RefCell<Value>>>,
     pub constant_index_lookup: HashMap<usize, usize>, // constant ExprNode id -> constant index
     pub variable_index_lookup: HashMap<String, usize>, // variable name -> variable index
 }

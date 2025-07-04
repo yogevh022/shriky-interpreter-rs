@@ -4,7 +4,7 @@ use std::fmt;
 #[derive(Debug, Clone, Copy)]
 pub enum ByteOp {
     LoadConstant,
-    LoadName,
+    LoadVariable,
     LoadGlobal,
     LoadNull,
 
@@ -24,7 +24,10 @@ pub enum ByteOp {
     Compare,
 
     BinarySubscribe,
-    Assign,
+    PreAssign,
+    PostAssign,
+    AssignSubscribe,
+    AssignAttribute,
 
     Call,
 

@@ -3,6 +3,7 @@ use crate::lexer::TokenKind;
 mod compiler;
 mod lexer;
 mod parser;
+mod runtime;
 mod utils;
 
 fn main() {
@@ -13,18 +14,7 @@ fn main() {
     let ast = parser.parse(TokenKind::EOF);
     let mut compiler = Compiler::new();
     let code_obj = compiler.compile(ast);
-    println!("bytecode:");
-    for (i, val) in code_obj.operations.iter().enumerate() {
-        println!("{}: {:?}", i, val);
-    }
-    println!(
-        "hex: {:?}",
-        code_obj
-            .operations
-            .iter()
-            .map(|item| item.hex())
-            .collect::<Vec<String>>()
-            .join(" ")
-    );
-    println!("constants: {:?}", code_obj.constants)
+    let mut runtime = runtime::Runtime::new();
+    runtime.print_code_object(code_obj.clone());
+    runtime.run(code_obj);
 }

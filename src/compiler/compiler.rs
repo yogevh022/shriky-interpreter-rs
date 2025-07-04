@@ -1,12 +1,11 @@
 use crate::compiler::byte_operations::*;
-use crate::compiler::code_object;
 use crate::compiler::code_object::{CodeObject, Value};
 use crate::lexer::TokenKind;
 use crate::parser::ExprNode;
 use crate::parser::nodes::*;
 use crate::parser::traits::HasId;
-use std::collections::HashMap;
-use std::fs::OpenOptions;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub struct Compiler {
     ip: usize,
@@ -69,6 +68,18 @@ impl Compiler {
         }
     }
 
+    fn identity_popped_head(
+        &mut self,
+        code_object: &mut CodeObject,
+        mut identity: IdentityNode,
+    ) -> ExprNode {
+        let head = identity.address.pop().unwrap();
+        if !identity.address.is_empty() {
+            self.identity(code_object, identity);
+        }
+        head
+    }
+
     fn cache_constant(
         code_object: &mut CodeObject,
         constant_id: usize,
@@ -78,26 +89,40 @@ impl Compiler {
         code_object
             .constant_index_lookup
             .insert(constant_id, new_literal_index);
-        code_object.constants.push(runtime_constant);
+        code_object
+            .constants
+            .push(Rc::new(RefCell::new(runtime_constant)));
         new_literal_index
     }
 
     fn cache_variable(code_object: &mut CodeObject, name: String) -> usize {
-        let new_variable_index = code_object.variables.len();
-        code_object
-            .variable_index_lookup
-            .insert(name.clone(), new_variable_index);
-        code_object.variables.push(name);
-        new_variable_index
+        if let Some(var_index) = code_object.variable_index_lookup.get(&name) {
+            *var_index
+        } else {
+            let new_variable_index = code_object.variables.len();
+            code_object
+                .variable_index_lookup
+                .insert(name.clone(), new_variable_index);
+            code_object
+                .variables
+                .push(Rc::new(RefCell::new(Value::Null)));
+            new_variable_index
+        }
     }
 
     fn load_name(&mut self, code_object: &mut CodeObject, node: StringNode) {
         if let Some(var_index) = code_object.variable_index_lookup.get(&node.value) {
-            self.push_op(code_object, OpIndex::with_op(ByteOp::LoadName, *var_index));
+            self.push_op(
+                code_object,
+                OpIndex::with_op(ByteOp::LoadVariable, *var_index),
+            );
             return;
         };
         let var_index = Compiler::cache_variable(code_object, node.value);
-        self.push_op(code_object, OpIndex::with_op(ByteOp::LoadName, var_index));
+        self.push_op(
+            code_object,
+            OpIndex::with_op(ByteOp::LoadVariable, var_index),
+        );
     }
 
     fn binary_subscribe(&mut self, code_object: &mut CodeObject, node: BinarySubscribeNode) {
@@ -114,12 +139,40 @@ impl Compiler {
     }
 
     fn assign(&mut self, code_object: &mut CodeObject, assign_node: AssignNode) {
-        self.identity(code_object, assign_node.identity);
-        self.compile_expr(code_object, *assign_node.value);
-        self.push_op(
-            code_object,
-            OpIndex::with_op(ByteOp::Assign, assign_node.return_after as usize),
-        );
+        // this loads rest of identity to the stack vv
+        let head = self.identity_popped_head(code_object, assign_node.identity);
+        match head {
+            ExprNode::BinarySubscribe(binary_subscribe_node) => {
+                self.compile_expr(
+                    code_object,
+                    *binary_subscribe_node.value,
+                );
+                self.compile_expr(code_object, *assign_node.value);
+                self.push_op(code_object, OpIndex::without_op(ByteOp::AssignSubscribe));
+            }
+            ExprNode::AccessAttribute(access_attribute_node) => {
+                let attribute_index = match *access_attribute_node.value {
+                    ExprNode::String(string_node) => {
+                        Compiler::cache_variable(code_object, string_node.value)
+                    }
+                    _ => panic!("Unexpected head of assign: {:?}", access_attribute_node),
+                };
+                self.compile_expr(code_object, *assign_node.value);
+                self.push_op(
+                    code_object,
+                    OpIndex::with_op(ByteOp::AssignAttribute, attribute_index),
+                );
+            }
+            ExprNode::String(string_node) => {
+                let var_index = Compiler::cache_variable(code_object, string_node.value);
+                self.compile_expr(code_object, *assign_node.value);
+                self.push_op(code_object, OpIndex::with_op(ByteOp::PreAssign, var_index));
+            }
+            ExprNode::FuncCall(func_call_node) => {
+                todo!()
+            }
+            _ => panic!("Unexpected head of assign: {:?}", head),
+        }
     }
 
     fn make_function(&mut self, code_object: &mut CodeObject, function_node: FunctionNode) {
