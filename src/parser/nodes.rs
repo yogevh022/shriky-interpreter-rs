@@ -23,6 +23,7 @@ pub enum ExprNode {
     Function(FunctionNode),
     Return(ReturnNode),
     While(WhileNode),
+    If(IfNode),
     Null(NullNode),
 }
 
@@ -46,6 +47,7 @@ pub enum ExprKind {
     Function,
     Return,
     While,
+    If,
     Null,
 }
 
@@ -72,6 +74,7 @@ impl ExprNode {
             ExprNode::Function(_) => ExprKind::Function,
             ExprNode::Return(_) => ExprKind::Return,
             ExprNode::While(_) => ExprKind::While,
+            ExprNode::If(_) => ExprKind::If,
             ExprNode::Null(_) => ExprKind::Null,
         }
     }
@@ -220,6 +223,19 @@ impl ExprNode {
         })
     }
 
+    pub fn if_n(
+        condition: ExprNode,
+        then_body: Vec<ExprNode>,
+        else_body: Vec<ExprNode>,
+    ) -> ExprNode {
+        ExprNode::If(IfNode {
+            id: NODE_ID_COUNTER.next(),
+            condition: Box::new(condition),
+            then_body,
+            else_body,
+        })
+    }
+
     pub fn null() -> ExprNode {
         ExprNode::Null(NullNode {})
     }
@@ -246,6 +262,7 @@ impl HasId for ExprNode {
             ExprNode::Function(node) => node.id,
             ExprNode::Return(node) => node.id,
             ExprNode::While(node) => node.id,
+            ExprNode::If(node) => node.id,
             ExprNode::Null(_) => 0,
         }
     }

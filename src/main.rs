@@ -13,7 +13,10 @@ fn main() {
     let ast = parser.parse(TokenKind::EOF);
     let mut compiler = Compiler::new();
     let code_obj = compiler.compile(ast);
-    println!("bytecode: {:?}", code_obj.operations);
+    println!("bytecode:");
+    for (i, val) in code_obj.operations.iter().enumerate() {
+        println!("{}: {:?}", i, val);
+    }
     println!(
         "hex: {:?}",
         code_obj

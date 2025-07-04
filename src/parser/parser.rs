@@ -30,6 +30,7 @@ impl<'a> Parser<'a> {
             (TokenKind::Minus, Parser::handle_minus),
             (TokenKind::Ampersand, Parser::handle_ampersand),
             (TokenKind::Function, Parser::handle_function),
+            (TokenKind::If, Parser::handle_if),
             (TokenKind::While, Parser::handle_while),
             (TokenKind::Return, Parser::handle_return),
             (TokenKind::LeftParen, Parser::handle_paren),
@@ -269,7 +270,33 @@ impl<'a> Parser<'a> {
     }
 
     fn handle_if(&mut self) -> ExprNode {
-        todo!()
+        self.eat(TokenKind::If);
+        let condition = self.expr();
+
+        self.eat(TokenKind::LeftCurly);
+        let body = self.parse(TokenKind::RightCurly);
+        self.eat(TokenKind::RightCurly);
+
+        let else_body = if self.current_token.kind == TokenKind::Else {
+            self.eat(TokenKind::Else);
+            match self.current_token.kind {
+                TokenKind::If => vec![self.handle_if()],
+                TokenKind::LeftCurly => {
+                    self.eat(TokenKind::LeftCurly);
+                    let body = self.parse(TokenKind::RightCurly);
+                    self.eat(TokenKind::RightCurly);
+                    body
+                }
+                _ => panic!(
+                    "Unexpected token after else statement: {:?}",
+                    self.current_token.kind
+                ),
+            }
+        } else {
+            Vec::new()
+        };
+
+        ExprNode::if_n(condition, body, else_body)
     }
 
     fn handle_while(&mut self) -> ExprNode {

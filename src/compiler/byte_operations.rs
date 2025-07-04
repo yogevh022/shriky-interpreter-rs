@@ -31,7 +31,6 @@ pub enum ByteOp {
     // return
     ReturnValue,
 
-    StartLoop,
     PopJumpIfFalse,
     Jump,
 }

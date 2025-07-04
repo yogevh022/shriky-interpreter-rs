@@ -1,6 +1,5 @@
 fn test() {
-    a = 2
-    return a
+    return 3
 }
 
-test(5,5)
+a = test()

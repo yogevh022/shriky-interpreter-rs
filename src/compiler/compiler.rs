@@ -152,24 +152,35 @@ impl Compiler {
         self.push_op(code_object, OpIndex::with_op(ByteOp::Call, arg_count));
     }
 
-    fn make_loop(&mut self, code_object: &mut CodeObject, body: Vec<ExprNode>) {
+    fn make_closure_body(&mut self, code_object: &mut CodeObject, body: Vec<ExprNode>) {
         for ast_node in body.into_iter() {
             self.compile_expr(code_object, ast_node);
         }
     }
 
-    fn while_loop(&mut self, code_object: &mut CodeObject, while_node: WhileNode) {
-        self.push_op(code_object, OpIndex::without_op(ByteOp::StartLoop));
-        let loop_body_start_index = code_object.operations.len();
+    fn while_closure(&mut self, code_object: &mut CodeObject, while_node: WhileNode) {
+        let loop_body_start_index = self.ip;
         self.compile_expr(code_object, *while_node.condition);
+        let pop_jump_op_index = code_object.operations.len();
         self.push_op(code_object, OpIndex::without_op(ByteOp::PopJumpIfFalse));
-        let pop_jump_op_index = code_object.operations.len() - 1;
-        self.make_loop(code_object, while_node.body);
+        self.make_closure_body(code_object, while_node.body);
         self.push_op(
             code_object,
             OpIndex::with_op(ByteOp::Jump, loop_body_start_index),
         );
         code_object.operations[pop_jump_op_index].operand = self.ip;
+    }
+
+    fn if_closure(&mut self, code_object: &mut CodeObject, if_node: IfNode) {
+        self.compile_expr(code_object, *if_node.condition);
+        let pop_jump_false_op_index = code_object.operations.len();
+        self.push_op(code_object, OpIndex::without_op(ByteOp::PopJumpIfFalse));
+        self.make_closure_body(code_object, if_node.then_body);
+        let pop_jump_true_op_index = code_object.operations.len();
+        self.push_op(code_object, OpIndex::without_op(ByteOp::Jump));
+        code_object.operations[pop_jump_false_op_index].operand = self.ip;
+        self.make_closure_body(code_object, if_node.else_body);
+        code_object.operations[pop_jump_true_op_index].operand = self.ip;
     }
 
     fn comparison(&mut self, code_object: &mut CodeObject, comparison_node: ComparisonNode) {
@@ -213,7 +224,8 @@ impl Compiler {
                 self.function_call(code_object, function_call_node)
             }
             ExprNode::Return(return_node) => self.return_value(code_object, return_node),
-            ExprNode::While(while_node) => self.while_loop(code_object, while_node),
+            ExprNode::If(if_node) => self.if_closure(code_object, if_node),
+            ExprNode::While(while_node) => self.while_closure(code_object, while_node),
             ExprNode::Comparison(comparison_node) => self.comparison(code_object, comparison_node),
             ExprNode::Identity(identity_node) => self.identity(code_object, identity_node),
             ExprNode::Assign(assign_node) => self.assign(code_object, assign_node),
