@@ -46,18 +46,20 @@ impl Compiler {
 
     fn identity(&mut self, code_object: &mut CodeObject, identity: IdentityNode) {
         let mut identity_address_iter = identity.address.into_iter();
-        if let Some(ExprNode::String(identity_base)) = identity_address_iter.next() {
-            self.load_name(code_object, identity_base);
-        } else {
-            panic!(
+        match identity_address_iter.next() {
+            Some(ExprNode::String(string_base)) => self.load_name(code_object, string_base),
+            Some(ExprNode::FuncCall(func_call_base)) => {
+                self.function_call(code_object, func_call_base)
+            }
+            _ => panic!(
                 "Unexpected identity base: {:?}",
                 identity_address_iter.collect::<Vec<_>>()
-            );
-        }
+            ),
+        };
         for part in identity_address_iter {
             match part {
-                ExprNode::AccessLiteral(access_literal_node) => {
-                    self.access_constant(code_object, access_literal_node)
+                ExprNode::BinarySubscribe(binary_subscribe_node) => {
+                    self.binary_subscribe(code_object, binary_subscribe_node)
                 }
                 ExprNode::AccessAttribute(access_attribute_node) => {
                     self.access_attribute(code_object, access_attribute_node)
@@ -98,16 +100,9 @@ impl Compiler {
         self.push_op(code_object, OpIndex::with_op(ByteOp::LoadName, var_index));
     }
 
-    fn access_constant(&mut self, code_object: &mut CodeObject, node: AccessConstantNode) {
-        let literal_index =
-            Compiler::cache_constant(code_object, node.value.id(), Value::from_expr(*node.value));
-        self.push_ops(
-            code_object,
-            vec![
-                OpIndex::with_op(ByteOp::LoadConstant, literal_index),
-                OpIndex::without_op(ByteOp::BinarySubscribe),
-            ],
-        );
+    fn binary_subscribe(&mut self, code_object: &mut CodeObject, node: BinarySubscribeNode) {
+        self.compile_expr(code_object, *node.value);
+        self.push_op(code_object, OpIndex::without_op(ByteOp::BinarySubscribe));
     }
 
     fn access_attribute(
@@ -143,6 +138,20 @@ impl Compiler {
         self.push_op(code_object, OpIndex::without_op(ByteOp::ReturnValue));
     }
 
+    fn function_call(
+        &mut self,
+        code_object: &mut CodeObject,
+        function_call_node: FunctionCallNode,
+    ) {
+        let arg_count = function_call_node.arguments.len();
+        function_call_node
+            .arguments
+            .into_iter()
+            .for_each(|arg| self.compile_expr(code_object, arg));
+        self.identity(code_object, function_call_node.identity);
+        self.push_op(code_object, OpIndex::with_op(ByteOp::Call, arg_count));
+    }
+
     fn make_loop(&mut self, code_object: &mut CodeObject, body: Vec<ExprNode>) {
         for ast_node in body.into_iter() {
             self.compile_expr(code_object, ast_node);
@@ -151,14 +160,14 @@ impl Compiler {
 
     fn while_loop(&mut self, code_object: &mut CodeObject, while_node: WhileNode) {
         self.push_op(code_object, OpIndex::without_op(ByteOp::StartLoop));
-        let loop_start_index = code_object.operations.len();
+        let loop_body_start_index = code_object.operations.len();
         self.compile_expr(code_object, *while_node.condition);
         self.push_op(code_object, OpIndex::without_op(ByteOp::PopJumpIfFalse));
         let pop_jump_op_index = code_object.operations.len() - 1;
         self.make_loop(code_object, while_node.body);
         self.push_op(
             code_object,
-            OpIndex::with_op(ByteOp::Jump, loop_start_index),
+            OpIndex::with_op(ByteOp::Jump, loop_body_start_index),
         );
         code_object.operations[pop_jump_op_index].operand = self.ip;
     }
@@ -200,6 +209,9 @@ impl Compiler {
                 );
             }
             ExprNode::Function(function_node) => self.make_function(code_object, function_node),
+            ExprNode::FuncCall(function_call_node) => {
+                self.function_call(code_object, function_call_node)
+            }
             ExprNode::Return(return_node) => self.return_value(code_object, return_node),
             ExprNode::While(while_node) => self.while_loop(code_object, while_node),
             ExprNode::Comparison(comparison_node) => self.comparison(code_object, comparison_node),

@@ -1,6 +1,6 @@
-while a > 2 {
-    while a > 3 {
-        s = 6
-    }
+fn test() {
     a = 2
+    return a
 }
+
+test(5,5)

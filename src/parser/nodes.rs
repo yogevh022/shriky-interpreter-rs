@@ -10,7 +10,7 @@ pub enum ExprNode {
     Bool(BoolNode),
     String(StringNode),
     Identity(IdentityNode),
-    AccessLiteral(AccessConstantNode),
+    BinarySubscribe(BinarySubscribeNode),
     AccessAttribute(AccessAttributeNode),
     Reference(ReferenceNode),
     Logical(LogicalNode),
@@ -67,7 +67,7 @@ impl ExprNode {
             ExprNode::List(_) => ExprKind::List,
             ExprNode::Logical(_) => ExprKind::Logical,
             ExprNode::Comparison(_) => ExprKind::Comparison,
-            ExprNode::AccessLiteral(_) => ExprKind::AccessConstant,
+            ExprNode::BinarySubscribe(_) => ExprKind::AccessConstant,
             ExprNode::AccessAttribute(_) => ExprKind::AccessAttribute,
             ExprNode::Function(_) => ExprKind::Function,
             ExprNode::Return(_) => ExprKind::Return,
@@ -126,7 +126,7 @@ impl ExprNode {
     }
 
     pub fn access_constant(value: ExprNode) -> ExprNode {
-        ExprNode::AccessLiteral(AccessConstantNode {
+        ExprNode::BinarySubscribe(BinarySubscribeNode {
             id: NODE_ID_COUNTER.next(),
             value: Box::new(value),
         })
@@ -166,10 +166,10 @@ impl ExprNode {
         })
     }
 
-    pub fn func_call(identity: ExprNode, args: Vec<ExprNode>) -> ExprNode {
+    pub fn func_call(identity: IdentityNode, args: Vec<ExprNode>) -> ExprNode {
         ExprNode::FuncCall(FunctionCallNode {
             id: NODE_ID_COUNTER.next(),
-            identity: Box::new(identity),
+            identity,
             arguments: args,
         })
     }
@@ -241,7 +241,7 @@ impl HasId for ExprNode {
             ExprNode::List(node) => node.id,
             ExprNode::Logical(node) => node.id,
             ExprNode::Comparison(node) => node.id,
-            ExprNode::AccessLiteral(node) => node.id,
+            ExprNode::BinarySubscribe(node) => node.id,
             ExprNode::AccessAttribute(node) => node.id,
             ExprNode::Function(node) => node.id,
             ExprNode::Return(node) => node.id,
@@ -286,7 +286,7 @@ pub struct BinaryNode {
 #[derive(Clone, Debug)]
 pub struct FunctionCallNode {
     pub id: usize,
-    pub identity: Box<ExprNode>,
+    pub identity: IdentityNode,
     pub arguments: Vec<ExprNode>,
 }
 
@@ -333,7 +333,7 @@ pub struct ComparisonNode {
 }
 
 #[derive(Clone, Debug)]
-pub struct AccessConstantNode {
+pub struct BinarySubscribeNode {
     pub id: usize,
     pub value: Box<ExprNode>,
 }
@@ -383,6 +383,14 @@ pub struct WhileNode {
     pub id: usize,
     pub condition: Box<ExprNode>,
     pub body: Vec<ExprNode>,
+}
+
+#[derive(Clone, Debug)]
+pub struct IfNode {
+    pub id: usize,
+    pub condition: Box<ExprNode>,
+    pub then_body: Vec<ExprNode>,
+    pub else_body: Vec<ExprNode>,
 }
 
 #[derive(Clone, Debug)]

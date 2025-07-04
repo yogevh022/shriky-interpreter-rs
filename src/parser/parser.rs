@@ -178,7 +178,7 @@ impl<'a> Parser<'a> {
         self.eat(TokenKind::LeftParen);
         let args = self.get_args(TokenKind::RightParen);
         self.eat(TokenKind::RightParen);
-        let func_call_identity = ExprNode::identity(mem::take(address));
+        let func_call_identity = IdentityNode::new(mem::take(address));
         *address = vec![ExprNode::func_call(func_call_identity, args)]
     }
 
@@ -266,6 +266,10 @@ impl<'a> Parser<'a> {
             self.expr()
         };
         ExprNode::return_n(return_value)
+    }
+
+    fn handle_if(&mut self) -> ExprNode {
+        todo!()
     }
 
     fn handle_while(&mut self) -> ExprNode {
