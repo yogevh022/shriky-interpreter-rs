@@ -1,6 +1,5 @@
 use crate::compiler::Compiler;
 use crate::lexer::TokenKind;
-
 mod compiler;
 mod lexer;
 mod parser;
@@ -12,7 +11,8 @@ fn main() {
     let mut lex = lexer::Lexer::new(&source);
     let mut parser = parser::Parser::new(&mut lex);
     let ast = parser.parse(TokenKind::EOF);
-    let code_obj = Compiler::compile(ast);
+    let mut compiler = Compiler::new();
+    let code_obj = compiler.compile(ast);
     println!("bytecode: {:?}", code_obj.operations);
     println!(
         "hex: {:?}",

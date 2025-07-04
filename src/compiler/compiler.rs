@@ -1,51 +1,53 @@
 use crate::compiler::byte_operations::*;
+use crate::compiler::code_object;
 use crate::compiler::code_object::{CodeObject, Value};
 use crate::lexer::TokenKind;
 use crate::parser::ExprNode;
 use crate::parser::nodes::*;
 use crate::parser::traits::HasId;
 use std::collections::HashMap;
+use std::fs::OpenOptions;
 
-pub struct Compiler {}
+pub struct Compiler {
+    ip: usize,
+}
 
 impl Compiler {
     pub fn new() -> Self {
-        Self {}
+        Self { ip: 0 }
     }
 
-    fn binary(code_object: &mut CodeObject, binary_node: BinaryNode) {
-        Compiler::compile_expr(code_object, *binary_node.left);
-        Compiler::compile_expr(code_object, *binary_node.right);
+    fn push_op(&mut self, code_object: &mut CodeObject, op: OpIndex) {
+        code_object.operations.push(op);
+        self.ip += 1;
+    }
+
+    fn push_ops(&mut self, code_object: &mut CodeObject, ops: Vec<OpIndex>) {
+        self.ip += ops.len();
+        code_object.operations.extend(ops);
+    }
+
+    fn binary(&mut self, code_object: &mut CodeObject, binary_node: BinaryNode) {
+        self.compile_expr(code_object, *binary_node.left);
+        self.compile_expr(code_object, *binary_node.right);
         match binary_node.operator {
-            TokenKind::Plus => code_object
-                .operations
-                .push(OperationIndex::without_operand(ByteOperation::Add)),
-            TokenKind::Minus => code_object
-                .operations
-                .push(OperationIndex::without_operand(ByteOperation::Sub)),
-            TokenKind::Asterisk => code_object
-                .operations
-                .push(OperationIndex::without_operand(ByteOperation::Mul)),
-            TokenKind::Slash => code_object
-                .operations
-                .push(OperationIndex::without_operand(ByteOperation::Div)),
-            TokenKind::DoubleSlash => code_object
-                .operations
-                .push(OperationIndex::without_operand(ByteOperation::IntDiv)),
-            TokenKind::Exponent => code_object
-                .operations
-                .push(OperationIndex::without_operand(ByteOperation::Exp)),
-            TokenKind::Modulo => code_object
-                .operations
-                .push(OperationIndex::without_operand(ByteOperation::Mod)),
+            TokenKind::Plus => self.push_op(code_object, OpIndex::without_op(ByteOp::Add)),
+            TokenKind::Minus => self.push_op(code_object, OpIndex::without_op(ByteOp::Sub)),
+            TokenKind::Asterisk => self.push_op(code_object, OpIndex::without_op(ByteOp::Mul)),
+            TokenKind::Slash => self.push_op(code_object, OpIndex::without_op(ByteOp::Div)),
+            TokenKind::DoubleSlash => {
+                self.push_op(code_object, OpIndex::without_op(ByteOp::IntDiv))
+            }
+            TokenKind::Exponent => self.push_op(code_object, OpIndex::without_op(ByteOp::Exp)),
+            TokenKind::Modulo => self.push_op(code_object, OpIndex::without_op(ByteOp::Mod)),
             _ => unreachable!("Expected binary operator, got: {:?}", binary_node.operator),
         }
     }
 
-    fn identity(code_object: &mut CodeObject, identity: IdentityNode) {
+    fn identity(&mut self, code_object: &mut CodeObject, identity: IdentityNode) {
         let mut identity_address_iter = identity.address.into_iter();
         if let Some(ExprNode::String(identity_base)) = identity_address_iter.next() {
-            Compiler::load_name(code_object, identity_base);
+            self.load_name(code_object, identity_base);
         } else {
             panic!(
                 "Unexpected identity base: {:?}",
@@ -55,10 +57,10 @@ impl Compiler {
         for part in identity_address_iter {
             match part {
                 ExprNode::AccessLiteral(access_literal_node) => {
-                    Compiler::access_constant(code_object, access_literal_node)
+                    self.access_constant(code_object, access_literal_node)
                 }
                 ExprNode::AccessAttribute(access_attribute_node) => {
-                    Compiler::access_attribute(code_object, access_attribute_node)
+                    self.access_attribute(code_object, access_attribute_node)
                 }
                 _ => panic!("Unexpected identity part: {:?}", part),
             }
@@ -87,68 +89,102 @@ impl Compiler {
         new_variable_index
     }
 
-    fn load_name(code_object: &mut CodeObject, node: StringNode) {
+    fn load_name(&mut self, code_object: &mut CodeObject, node: StringNode) {
         if let Some(var_index) = code_object.variable_index_lookup.get(&node.value) {
-            code_object.operations.push(OperationIndex::with_operand(
-                ByteOperation::LoadName,
-                *var_index,
-            ));
+            self.push_op(code_object, OpIndex::with_op(ByteOp::LoadName, *var_index));
             return;
         };
         let var_index = Compiler::cache_variable(code_object, node.value);
-        code_object.operations.push(OperationIndex::with_operand(
-            ByteOperation::LoadName,
-            var_index,
-        ))
+        self.push_op(code_object, OpIndex::with_op(ByteOp::LoadName, var_index));
     }
 
-    fn access_constant(code_object: &mut CodeObject, node: AccessConstantNode) {
+    fn access_constant(&mut self, code_object: &mut CodeObject, node: AccessConstantNode) {
         let literal_index =
             Compiler::cache_constant(code_object, node.value.id(), Value::from_expr(*node.value));
-        code_object.operations.extend([
-            OperationIndex::with_operand(ByteOperation::LoadConstant, literal_index),
-            OperationIndex::without_operand(ByteOperation::BinarySubscribe),
-        ]);
+        self.push_ops(
+            code_object,
+            vec![
+                OpIndex::with_op(ByteOp::LoadConstant, literal_index),
+                OpIndex::without_op(ByteOp::BinarySubscribe),
+            ],
+        );
     }
 
-    fn access_attribute(code_object: &mut CodeObject, access_attribute_node: AccessAttributeNode) {
+    fn access_attribute(
+        &mut self,
+        code_object: &mut CodeObject,
+        access_attribute_node: AccessAttributeNode,
+    ) {
         todo!()
     }
 
-    fn assign(code_object: &mut CodeObject, assign_node: AssignNode) {
-        Compiler::identity(code_object, assign_node.identity);
-        Compiler::compile_expr(code_object, *assign_node.value);
-        code_object.operations.push(OperationIndex::with_operand(
-            ByteOperation::Assign,
-            assign_node.return_after as usize,
-        ));
+    fn assign(&mut self, code_object: &mut CodeObject, assign_node: AssignNode) {
+        self.identity(code_object, assign_node.identity);
+        self.compile_expr(code_object, *assign_node.value);
+        self.push_op(
+            code_object,
+            OpIndex::with_op(ByteOp::Assign, assign_node.return_after as usize),
+        );
     }
 
-    fn make_function(code_object: &mut CodeObject, function_node: FunctionNode) {
+    fn make_function(&mut self, code_object: &mut CodeObject, function_node: FunctionNode) {
         let func_id = function_node.id;
-        let func_obj = Compiler::compile(function_node.body);
+        let func_obj = self.compile(function_node.body);
         let func_const_index =
             Compiler::cache_constant(code_object, func_id, Value::Function(func_obj));
-        code_object.operations.push(OperationIndex::with_operand(
-            ByteOperation::LoadConstant,
-            func_const_index,
-        ));
+        self.push_op(
+            code_object,
+            OpIndex::with_op(ByteOp::LoadConstant, func_const_index),
+        );
     }
 
-    fn return_value(code_object: &mut CodeObject, return_node: ReturnNode) {
-        Compiler::compile_expr(code_object, *return_node.value);
-        code_object
-            .operations
-            .push(OperationIndex::without_operand(ByteOperation::ReturnValue))
+    fn return_value(&mut self, code_object: &mut CodeObject, return_node: ReturnNode) {
+        self.compile_expr(code_object, *return_node.value);
+        self.push_op(code_object, OpIndex::without_op(ByteOp::ReturnValue));
     }
 
-    fn while_loop(code_object: &mut CodeObject, while_node: WhileNode) {
-        todo!()
-        // let loop_condition = Compiler::compile_expr(code_object, *while_node.condition);
-        // let loop_body = Compiler::compile(while_node.body);
+    fn make_loop(&mut self, code_object: &mut CodeObject, body: Vec<ExprNode>) {
+        for ast_node in body.into_iter() {
+            self.compile_expr(code_object, ast_node);
+        }
     }
 
-    pub fn compile_expr(code_object: &mut CodeObject, expr: ExprNode) {
+    fn while_loop(&mut self, code_object: &mut CodeObject, while_node: WhileNode) {
+        self.push_op(code_object, OpIndex::without_op(ByteOp::StartLoop));
+        let loop_start_index = code_object.operations.len();
+        self.compile_expr(code_object, *while_node.condition);
+        self.push_op(code_object, OpIndex::without_op(ByteOp::PopJumpIfFalse));
+        let pop_jump_op_index = code_object.operations.len() - 1;
+        self.make_loop(code_object, while_node.body);
+        self.push_op(
+            code_object,
+            OpIndex::with_op(ByteOp::Jump, loop_start_index),
+        );
+        code_object.operations[pop_jump_op_index].operand = self.ip;
+    }
+
+    fn comparison(&mut self, code_object: &mut CodeObject, comparison_node: ComparisonNode) {
+        let operand = match comparison_node.operator {
+            TokenKind::Equals => ByteComparisonOp::Equal,
+            TokenKind::NotEquals => ByteComparisonOp::NotEqual,
+            TokenKind::LessThan => ByteComparisonOp::Less,
+            TokenKind::LessThanEquals => ByteComparisonOp::LessEqual,
+            TokenKind::GreaterThan => ByteComparisonOp::Greater,
+            TokenKind::GreaterThanEquals => ByteComparisonOp::GreaterEqual,
+            _ => unreachable!(
+                "Unexpected comparison operator: {:?}",
+                comparison_node.operator
+            ),
+        };
+        self.compile_expr(code_object, *comparison_node.left);
+        self.compile_expr(code_object, *comparison_node.right);
+        self.push_op(
+            code_object,
+            OpIndex::with_op(ByteOp::Compare, operand as usize),
+        );
+    }
+
+    pub fn compile_expr(&mut self, code_object: &mut CodeObject, expr: ExprNode) {
         match expr {
             ExprNode::Int(_)
             | ExprNode::Float(_)
@@ -158,26 +194,27 @@ impl Compiler {
             | ExprNode::List(_) => {
                 let constant_index =
                     Compiler::cache_constant(code_object, expr.id(), Value::from_expr(expr));
-                code_object.operations.push(OperationIndex::with_operand(
-                    ByteOperation::LoadConstant,
-                    constant_index,
-                ));
+                self.push_op(
+                    code_object,
+                    OpIndex::with_op(ByteOp::LoadConstant, constant_index),
+                );
             }
-            ExprNode::Function(function_node) => {
-                Compiler::make_function(code_object, function_node)
-            }
-            ExprNode::Return(return_node) => Compiler::return_value(code_object, return_node),
-            ExprNode::Identity(identity_node) => Compiler::identity(code_object, identity_node),
-            ExprNode::Assign(assign_node) => Compiler::assign(code_object, assign_node),
-            ExprNode::Binary(binary_node) => Compiler::binary(code_object, binary_node),
+            ExprNode::Function(function_node) => self.make_function(code_object, function_node),
+            ExprNode::Return(return_node) => self.return_value(code_object, return_node),
+            ExprNode::While(while_node) => self.while_loop(code_object, while_node),
+            ExprNode::Comparison(comparison_node) => self.comparison(code_object, comparison_node),
+            ExprNode::Identity(identity_node) => self.identity(code_object, identity_node),
+            ExprNode::Assign(assign_node) => self.assign(code_object, assign_node),
+            ExprNode::Binary(binary_node) => self.binary(code_object, binary_node),
+            ExprNode::Null(_) => self.push_op(code_object, OpIndex::without_op(ByteOp::LoadNull)),
             _ => panic!("Unexpected expr node: {:?}", expr),
         }
     }
 
-    pub fn compile(ast: Vec<ExprNode>) -> CodeObject {
-        let mut code_object = CodeObject::default();
-        for ast_node in ast.iter() {
-            Compiler::compile_expr(&mut code_object, ast_node.clone());
+    pub fn compile(&mut self, ast: Vec<ExprNode>) -> CodeObject {
+        let mut code_object = CodeObject::from_index(self.ip);
+        for ast_node in ast.into_iter() {
+            self.compile_expr(&mut code_object, ast_node);
         }
         code_object
     }

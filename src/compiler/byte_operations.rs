@@ -1,57 +1,80 @@
 use std::fmt;
 
+#[repr(u8)]
 #[derive(Debug, Clone, Copy)]
-pub enum ByteOperation {
-    LoadName = 0x01,
-    LoadGlobal = 0x02,
-    LoadConstant = 0x03,
-    Add = 0x04,
-    ReturnValue = 0x05,
-    Call = 0x06,
-    Pop = 0x07,
-    StoreName = 0x08,
-    BinarySubscribe = 0x09,
-    Assign = 0x0A,
-    Sub = 0x0B,
-    Div = 0x0C,
-    Mul = 0x0D,
-    Negate = 0x0E,
-    Not = 0x0F,
-    Greater = 0x10,
-    Less = 0x11,
-    GreaterEqual = 0x12,
-    LessEqual = 0x13,
-    Equal = 0x14,
-    Exp = 0x15,
-    Mod = 0x16,
-    IntDiv = 0x17,
+pub enum ByteOp {
+    LoadConstant,
+    LoadName,
+    LoadGlobal,
+    LoadNull,
+
+    // unary
+    Negate,
+    Not,
+
+    // binary
+    Add,
+    Sub,
+    Mul,
+    Div,
+    IntDiv,
+    Mod,
+    Exp,
+
+    Compare,
+
+    BinarySubscribe,
+    Assign,
+
+    Call,
+
+    // return
+    ReturnValue,
+
+    StartLoop,
+    PopJumpIfFalse,
+    Jump,
+}
+
+#[repr(u8)]
+#[derive(Debug, Clone, Copy)]
+pub enum ByteComparisonOp {
+    Equal,
+    NotEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
 }
 
 #[derive(Clone, Copy)]
-pub struct OperationIndex {
-    operation: ByteOperation,
-    index: usize,
+pub struct OpIndex {
+    pub operation: ByteOp,
+    pub operand: usize,
 }
 
-impl OperationIndex {
-    pub fn with_operand(operation: ByteOperation, index: usize) -> Self {
-        Self { operation, index }
+impl OpIndex {
+    pub fn with_op(op: ByteOp, operand: usize) -> Self {
+        Self {
+            operation: op,
+            operand,
+        }
     }
 
-    pub fn without_operand(operation: ByteOperation) -> Self {
+    pub fn without_op(op: ByteOp) -> Self {
         Self {
-            operation,
-            index: 0,
+            operation: op,
+            operand: 0,
         }
     }
 
     pub fn hex(&self) -> String {
-        format!("0x{:02X} {}", self.operation as u8, self.index)
+        format!("0x{:02X} {}", self.operation as u8, self.operand)
     }
 }
 
-impl fmt::Debug for OperationIndex {
+impl fmt::Debug for OpIndex {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[{:?}, {}]", self.operation, self.index)
+        write!(f, "[{:?}, {}]", self.operation, self.operand)
     }
 }

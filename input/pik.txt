@@ -1,5 +1,6 @@
-fn techno(arg1, arg2) {
-    a = 42
-    return arg1 + arg2
+while a > 2 {
+    while a > 3 {
+        s = 6
+    }
+    a = 2
 }
-a = 3

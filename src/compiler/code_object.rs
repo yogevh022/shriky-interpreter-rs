@@ -1,4 +1,4 @@
-use crate::compiler::byte_operations::OperationIndex;
+use crate::compiler::byte_operations::OpIndex;
 use crate::parser::ExprNode;
 use crate::parser::nodes::FloatNode;
 use ordered_float::OrderedFloat;
@@ -98,11 +98,29 @@ impl Value {
 
 #[derive(Debug)]
 pub struct CodeObject {
-    pub operations: Vec<OperationIndex>,
+    pub start_index: usize,
+    pub operations: Vec<OpIndex>,
     pub constants: Vec<Value>,
     pub variables: Vec<String>,
     pub constant_index_lookup: HashMap<usize, usize>, // constant ExprNode id -> constant index
     pub variable_index_lookup: HashMap<String, usize>, // variable name -> variable index
+}
+
+impl CodeObject {
+    pub fn from_index(start_index: usize) -> CodeObject {
+        CodeObject {
+            start_index,
+            operations: Vec::new(),
+            constants: Vec::new(),
+            variables: Vec::new(),
+            constant_index_lookup: HashMap::new(),
+            variable_index_lookup: HashMap::new(),
+        }
+    }
+
+    pub fn push_op(&mut self, op: OpIndex) {
+        self.operations.push(op);
+    }
 }
 
 impl Hash for CodeObject {
@@ -126,6 +144,7 @@ impl Eq for CodeObject {
 impl Default for CodeObject {
     fn default() -> Self {
         Self {
+            start_index: 0,
             operations: Vec::new(),
             constants: Vec::new(),
             variables: Vec::new(),
