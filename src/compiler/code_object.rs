@@ -202,6 +202,76 @@ impl Value {
             _ => panic!("Invalid binary operation"),
         }
     }
+
+    pub fn equals(&self, other: &Value) -> bool {
+        match (self, other) {
+            (Value::Int(a), Value::Int(b)) => a == b,
+            (Value::Int(a), Value::Float(b)) => *a as f64 == **b,
+            (Value::Float(a), Value::Int(b)) => *a == *b as f64,
+            (Value::Float(a), Value::Float(b)) => a == b,
+            (Value::String(a), Value::String(b)) => a == b,
+            (Value::Bool(a), Value::Bool(b)) => a == b,
+            (Value::Null, Value::Null) => true,
+            _ => false,
+        }
+    }
+
+    pub fn greater_than(&self, other: &Value) -> bool {
+        match (self, other) {
+            (Value::Int(a), Value::Int(b)) => a > b,
+            (Value::Int(a), Value::Float(b)) => *a as f64 > **b,
+            (Value::Float(a), Value::Float(b)) => a > b,
+            (Value::String(a), Value::String(b)) => a.len() > b.len(),
+            (Value::Bool(a), Value::Bool(b)) => a > b,
+            _ => false,
+        }
+    }
+
+    pub fn greater_than_equals(&self, other: &Value) -> bool {
+        match (self, other) {
+            (Value::Int(a), Value::Int(b)) => a >= b,
+            (Value::Int(a), Value::Float(b)) => *a as f64 >= **b,
+            (Value::Float(a), Value::Float(b)) => a >= b,
+            (Value::String(a), Value::String(b)) => a.len() >= b.len(),
+            (Value::Bool(a), Value::Bool(b)) => a >= b,
+            _ => false,
+        }
+    }
+
+    pub fn less_than(&self, other: &Value) -> bool {
+        match (self, other) {
+            (Value::Int(a), Value::Int(b)) => a < b,
+            (Value::Int(a), Value::Float(b)) => (*a as f64) < **b,
+            (Value::Float(a), Value::Float(b)) => a < b,
+            (Value::String(a), Value::String(b)) => a.len() < b.len(),
+            (Value::Bool(a), Value::Bool(b)) => a < b,
+            _ => false,
+        }
+    }
+
+    pub fn less_than_equals(&self, other: &Value) -> bool {
+        match (self, other) {
+            (Value::Int(a), Value::Int(b)) => a <= b,
+            (Value::Int(a), Value::Float(b)) => (*a as f64) <= **b,
+            (Value::Float(a), Value::Float(b)) => a <= b,
+            (Value::String(a), Value::String(b)) => a.len() <= b.len(),
+            (Value::Bool(a), Value::Bool(b)) => a <= b,
+            _ => false,
+        }
+    }
+
+    pub fn is_truthy(&self) -> bool {
+        match self {
+            Value::Bool(b) => *b,
+            Value::Int(i) => *i != 0,
+            Value::Float(f) => *f != 0.0,
+            Value::String(s) => !s.is_empty(),
+            Value::Null => false,
+            Value::Object(o) => !o.properties.is_empty(),
+            Value::List(l) => !l.elements.is_empty(),
+            Value::Function(_) => true,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

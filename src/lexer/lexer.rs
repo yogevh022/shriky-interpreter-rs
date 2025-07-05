@@ -23,6 +23,8 @@ impl<'a> Lexer<'a> {
             ("continue", token::TokenKind::Continue),
             ("fn", token::TokenKind::Function),
             ("return", token::TokenKind::Return),
+            ("and", token::TokenKind::LogicalAND),
+            ("or", token::TokenKind::LogicalOR),
             ("null", token::TokenKind::Null),
         ]);
         let single_char_tokens = HashMap::from([

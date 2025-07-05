@@ -26,6 +26,9 @@ pub enum ByteOp {
 
     Compare,
 
+    LogicalAnd,
+    LogicalOr,
+
     BinarySubscribe,
     PreAssign,
     PostAssign,
@@ -50,6 +53,13 @@ pub enum ByteComparisonOp {
     LessEqual,
     Greater,
     GreaterEqual,
+}
+
+impl From<u8> for ByteComparisonOp {
+    fn from(value: u8) -> Self {
+        // unsafe but less of a headache, just make sure the value is in range
+        unsafe { std::mem::transmute(value) }
+    }
 }
 
 #[derive(Clone, Copy)]

@@ -31,8 +31,12 @@ impl Compiler {
         self.compile_expr(code_object, *binary_node.left);
         self.compile_expr(code_object, *binary_node.right);
         match binary_node.operator {
-            TokenKind::Plus => self.push_op(code_object, OpIndex::without_op(ByteOp::Add)),
-            TokenKind::Minus => self.push_op(code_object, OpIndex::without_op(ByteOp::Sub)),
+            TokenKind::Plus | TokenKind::Increment => {
+                self.push_op(code_object, OpIndex::without_op(ByteOp::Add))
+            }
+            TokenKind::Minus | TokenKind::Decrement => {
+                self.push_op(code_object, OpIndex::without_op(ByteOp::Sub))
+            }
             TokenKind::Asterisk => self.push_op(code_object, OpIndex::without_op(ByteOp::Mul)),
             TokenKind::Slash => self.push_op(code_object, OpIndex::without_op(ByteOp::Div)),
             TokenKind::DoubleSlash => {
@@ -284,6 +288,17 @@ impl Compiler {
         );
     }
 
+    fn logical(&mut self, code_object: &mut CodeObject, logical_node: LogicalNode) {
+        self.compile_expr(code_object, *logical_node.left);
+        self.compile_expr(code_object, *logical_node.right);
+        let op = match logical_node.operator {
+            TokenKind::LogicalAND => ByteOp::LogicalAnd,
+            TokenKind::LogicalOR => ByteOp::LogicalOr,
+            _ => unreachable!("Unexpected logical operator: {:?}", logical_node.operator),
+        };
+        self.push_op(code_object, OpIndex::without_op(op));
+    }
+
     pub fn compile_expr(&mut self, code_object: &mut CodeObject, expr: ExprNode) {
         match expr {
             ExprNode::Int(_) | ExprNode::Float(_) | ExprNode::Bool(_) | ExprNode::String(_) => {
@@ -313,6 +328,7 @@ impl Compiler {
             ExprNode::If(if_node) => self.if_closure(code_object, if_node),
             ExprNode::While(while_node) => self.while_closure(code_object, while_node),
             ExprNode::Comparison(comparison_node) => self.comparison(code_object, comparison_node),
+            ExprNode::Logical(logical_node) => self.logical(code_object, logical_node),
             ExprNode::Identity(identity_node) => self.identity(code_object, identity_node),
             ExprNode::Assign(assign_node) => self.assign(code_object, assign_node),
             ExprNode::Binary(binary_node) => self.binary(code_object, binary_node),

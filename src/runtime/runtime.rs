@@ -1,4 +1,5 @@
 use crate::compiler::ByteOp;
+use crate::compiler::byte_operations::ByteComparisonOp;
 use crate::compiler::code_object::*;
 use std;
 use std::arch::x86_64::_popcnt32;
@@ -129,6 +130,38 @@ impl Runtime {
             .push(Rc::new(RefCell::new(f(&*a.borrow(), &*b.borrow()))));
     }
 
+    fn compare(&mut self, comparison_operand: usize) {
+        let comparison = ByteComparisonOp::from(comparison_operand as u8);
+        let b = self.memory_stack.pop().unwrap();
+        let a = self.memory_stack.pop().unwrap();
+        let result = match comparison {
+            ByteComparisonOp::Equal => a.borrow().equals(&*b.borrow()),
+            ByteComparisonOp::Greater => a.borrow().greater_than(&*b.borrow()),
+            ByteComparisonOp::GreaterEqual => a.borrow().greater_than_equals(&*b.borrow()),
+            ByteComparisonOp::Less => a.borrow().less_than(&*b.borrow()),
+            ByteComparisonOp::LessEqual => a.borrow().less_than_equals(&*b.borrow()),
+            _ => panic!("Unimplemented comparison op: {:?}", comparison),
+        };
+        self.memory_stack
+            .push(Rc::new(RefCell::new(Value::Bool(result))));
+    }
+
+    fn logical_and(&mut self) {
+        let b = self.memory_stack.pop().unwrap();
+        let a = self.memory_stack.pop().unwrap();
+        let result = a.borrow().is_truthy() && b.borrow().is_truthy();
+        self.memory_stack
+            .push(Rc::new(RefCell::new(Value::Bool(result))));
+    }
+
+    fn logical_or(&mut self) {
+        let b = self.memory_stack.pop().unwrap();
+        let a = self.memory_stack.pop().unwrap();
+        let result = a.borrow().is_truthy() || b.borrow().is_truthy();
+        self.memory_stack
+            .push(Rc::new(RefCell::new(Value::Bool(result))));
+    }
+
     fn execute(&mut self, scope: Rc<RefCell<CodeObject>>) {
         let mut ip = 0;
         while let Some(byte_op) = scope.borrow().operations.get(ip) {
@@ -155,6 +188,20 @@ impl Runtime {
                 ByteOp::IntDiv => self.apply_bin_op(Value::bin_int_div),
                 ByteOp::Mod => self.apply_bin_op(Value::bin_mod),
                 ByteOp::Exp => self.apply_bin_op(Value::bin_exp),
+                ByteOp::Compare => self.compare(byte_op.operand),
+                ByteOp::LogicalAnd => self.logical_and(),
+                ByteOp::LogicalOr => self.logical_or(),
+                ByteOp::PopJumpIfFalse => {
+                    let condition = self.memory_stack.pop().unwrap();
+                    if !(&*condition.borrow()).is_truthy() {
+                        ip = byte_op.operand;
+                        continue;
+                    }
+                }
+                ByteOp::Jump => {
+                    ip = byte_op.operand;
+                    continue;
+                }
                 _ => panic!("Unimplemented {:?}", byte_op.operation),
             }
             ip += 1;
