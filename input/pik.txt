@@ -1,5 +1,7 @@
-fn test() {
+fn f() {
     return 2
 }
 
-a = {3: test(), 2: "test"};
+a = {
+    f(): f()
+}

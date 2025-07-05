@@ -8,6 +8,9 @@ pub enum ByteOp {
     LoadGlobal,
     LoadNull,
 
+    MakeList,
+    MakeObject,
+
     // unary
     Negate,
     Not,

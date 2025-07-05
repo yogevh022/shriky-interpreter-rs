@@ -1,5 +1,6 @@
 use crate::compiler::byte_operations::OpIndex;
 use crate::parser::ExprNode;
+use crate::parser::nodes::{ListNode, ObjectNode};
 use ordered_float::OrderedFloat;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -58,6 +59,11 @@ impl Debug for FunctionValue {
     }
 }
 
+pub enum ValueError {
+    InvalidOperation,
+    InvalidType,
+}
+
 impl Value {
     pub fn int(value: i64) -> Value {
         Value::Int(value)
@@ -90,31 +96,34 @@ impl Value {
     pub fn null() -> Value {
         Value::Null
     }
-    pub fn from_expr(expr: ExprNode) -> Value {
+
+    pub fn try_const_from_object(node: ObjectNode) -> Result<Value, ValueError> {
+        let mut obj_props = indexmap::IndexMap::new();
+        for obj_prop in node.properties {
+            obj_props.insert(
+                Value::from_expr(obj_prop.key)?,
+                Rc::new(RefCell::new(Value::from_expr(obj_prop.value)?)),
+            );
+        }
+        Ok(Value::object(obj_props))
+    }
+
+    pub fn try_const_from_list(node: ListNode) -> Result<Value, ValueError> {
+        let list_elements: Result<Vec<_>, _> = node
+            .elements
+            .into_iter()
+            .map(|list_item| Value::from_expr(list_item).map(|v| Rc::new(RefCell::new(v))))
+            .collect();
+        Ok(Value::list(list_elements?))
+    }
+
+    pub fn from_expr(expr: ExprNode) -> Result<Value, ValueError> {
         match expr {
-            ExprNode::Int(int_node) => Value::int(int_node.value),
-            ExprNode::Float(float_node) => Value::float(float_node.value),
-            ExprNode::String(string_node) => Value::string(string_node.value),
-            ExprNode::Bool(bool_node) => Value::bool(bool_node.value),
-            ExprNode::Object(object_node) => {
-                let mut obj_props = indexmap::IndexMap::new();
-                object_node.properties.into_iter().for_each(|obj_prop| {
-                    obj_props.insert(
-                        Value::from_expr(obj_prop.key),
-                        Rc::new(RefCell::new(Value::from_expr(obj_prop.value))),
-                    );
-                });
-                Value::object(obj_props)
-            }
-            ExprNode::List(list_node) => {
-                let list_elements = list_node
-                    .elements
-                    .into_iter()
-                    .map(|list_item| Rc::new(RefCell::new(Value::from_expr(list_item))))
-                    .collect();
-                Value::list(list_elements)
-            }
-            _ => panic!("Invalid expression node type {:?}", expr),
+            ExprNode::Int(int_node) => Ok(Value::int(int_node.value)),
+            ExprNode::Float(float_node) => Ok(Value::float(float_node.value)),
+            ExprNode::String(string_node) => Ok(Value::string(string_node.value)),
+            ExprNode::Bool(bool_node) => Ok(Value::bool(bool_node.value)),
+            _ => Err(ValueError::InvalidType),
         }
     }
 

@@ -4,6 +4,7 @@ use crate::lexer::TokenKind;
 use crate::parser::ExprNode;
 use crate::parser::nodes::*;
 use crate::parser::traits::HasId;
+use std::arch::x86_64::_mm_cmpord_pd;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -110,6 +111,19 @@ impl Compiler {
         }
     }
 
+    fn constant(
+        &mut self,
+        code_object: &mut CodeObject,
+        constant_id: usize,
+        constant_value: Value,
+    ) {
+        let constant_index = Compiler::cache_constant(code_object, constant_id, constant_value);
+        self.push_op(
+            code_object,
+            OpIndex::with_op(ByteOp::LoadConstant, constant_index),
+        );
+    }
+
     fn load_name(&mut self, code_object: &mut CodeObject, node: StringNode) {
         if let Some(var_index) = code_object.variable_index_lookup.get(&node.value) {
             self.push_op(
@@ -170,6 +184,23 @@ impl Compiler {
             }
             _ => panic!("Unexpected head of assign: {:?}", head),
         }
+    }
+
+    fn make_runtime_object(&mut self, code_object: &mut CodeObject, object_node: ObjectNode) {
+        let obj_size = object_node.properties.len() * 2;
+        object_node.properties.into_iter().for_each(|property| {
+            self.compile_expr(code_object, property.key);
+            self.compile_expr(code_object, property.value);
+        });
+        self.push_op(code_object, OpIndex::with_op(ByteOp::MakeObject, obj_size));
+    }
+
+    fn make_runtime_list(&mut self, code_object: &mut CodeObject, list_node: ListNode) {
+        let list_len = list_node.elements.len();
+        list_node.elements.into_iter().for_each(|element| {
+            self.compile_expr(code_object, element);
+        });
+        self.push_op(code_object, OpIndex::with_op(ByteOp::MakeList, list_len));
     }
 
     fn make_function(&mut self, code_object: &mut CodeObject, function_node: FunctionNode) {
@@ -255,18 +286,24 @@ impl Compiler {
 
     pub fn compile_expr(&mut self, code_object: &mut CodeObject, expr: ExprNode) {
         match expr {
-            ExprNode::Int(_)
-            | ExprNode::Float(_)
-            | ExprNode::Bool(_)
-            | ExprNode::String(_)
-            | ExprNode::Object(_)
-            | ExprNode::List(_) => {
-                let constant_index =
-                    Compiler::cache_constant(code_object, expr.id(), Value::from_expr(expr));
-                self.push_op(
-                    code_object,
-                    OpIndex::with_op(ByteOp::LoadConstant, constant_index),
-                );
+            ExprNode::Int(_) | ExprNode::Float(_) | ExprNode::Bool(_) | ExprNode::String(_) => {
+                self.constant(code_object, expr.id(), Value::from_expr(expr).ok().unwrap())
+            }
+            ExprNode::Object(object) => {
+                let constant_id = object.id;
+                if let Ok(obj_const) = Value::try_const_from_object(object.clone()) {
+                    self.constant(code_object, constant_id, obj_const);
+                } else {
+                    self.make_runtime_object(code_object, object);
+                }
+            }
+            ExprNode::List(list) => {
+                let constant_id = list.id;
+                if let Ok(list_const) = Value::try_const_from_list(list.clone()) {
+                    self.constant(code_object, constant_id, list_const);
+                } else {
+                    self.make_runtime_list(code_object, list);
+                }
             }
             ExprNode::Function(function_node) => self.make_function(code_object, function_node),
             ExprNode::FuncCall(function_call_node) => {

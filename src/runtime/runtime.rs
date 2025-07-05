@@ -90,6 +90,35 @@ impl Runtime {
         }
     }
 
+    fn make_object(&mut self, property_count: usize) {
+        let properties_kv: Vec<Rc<RefCell<Value>>> = self
+            .memory_stack
+            .drain(self.memory_stack.len() - property_count..)
+            .collect();
+
+        let mut properties = indexmap::IndexMap::new();
+        for kv in properties_kv.chunks(2) {
+            match kv {
+                [k, v] => {
+                    properties.insert(k.borrow().clone(), v.clone());
+                }
+                _ => unreachable!("Object key without a value"),
+            }
+        }
+        self.memory_stack
+            .push(Rc::new(RefCell::new(Value::object(properties))));
+    }
+
+    fn make_list(&mut self, list_size: usize) {
+        let list_items = self
+            .memory_stack
+            .drain(self.memory_stack.len() - list_size..)
+            .rev()
+            .collect();
+        self.memory_stack
+            .push(Rc::new(RefCell::new(Value::list(list_items))));
+    }
+
     fn apply_bin_op<F>(&mut self, f: F)
     where
         F: Fn(&Value, &Value) -> Value,
@@ -115,6 +144,8 @@ impl Runtime {
                 ByteOp::BinarySubscribe => self.binary_subscribe(),
                 ByteOp::PreAssign => self.pre_assign(&scope.borrow(), byte_op.operand),
                 ByteOp::AssignSubscribe => self.assign_subscribe(),
+                ByteOp::MakeObject => self.make_object(byte_op.operand),
+                ByteOp::MakeList => self.make_list(byte_op.operand),
                 ByteOp::ReturnValue => return,
                 ByteOp::Call => self.call(byte_op.operand),
                 ByteOp::Add => self.apply_bin_op(Value::bin_add),
