@@ -16,15 +16,16 @@ pub enum ExprNode {
     Logical(LogicalNode),
     Comparison(ComparisonNode),
     Binary(BinaryNode),
-    FuncCall(FunctionCallNode),
+    Call(CallNode),
     Assign(AssignNode),
-    Object(ObjectNode),
+    Map(MapNode),
     List(ListNode),
     Function(FunctionNode),
+    Class(ClassNode),
     Return(ReturnNode),
     While(WhileNode),
     If(IfNode),
-    Null(NullNode),
+    Null,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -40,11 +41,12 @@ pub enum ExprKind {
     Logical,
     Comparison,
     Binary,
-    FuncCall,
+    Call,
     Assign,
     Object,
     List,
     Function,
+    Class,
     Return,
     While,
     If,
@@ -63,19 +65,20 @@ impl ExprNode {
             ExprNode::Identity(_) => ExprKind::Identity,
             ExprNode::Reference(_) => ExprKind::Reference,
             ExprNode::Binary(_) => ExprKind::Binary,
-            ExprNode::FuncCall(_) => ExprKind::FuncCall,
+            ExprNode::Call(_) => ExprKind::Call,
             ExprNode::Assign(_) => ExprKind::Assign,
-            ExprNode::Object(_) => ExprKind::Object,
+            ExprNode::Map(_) => ExprKind::Object,
             ExprNode::List(_) => ExprKind::List,
             ExprNode::Logical(_) => ExprKind::Logical,
             ExprNode::Comparison(_) => ExprKind::Comparison,
             ExprNode::BinarySubscribe(_) => ExprKind::AccessConstant,
             ExprNode::AccessAttribute(_) => ExprKind::AccessAttribute,
             ExprNode::Function(_) => ExprKind::Function,
+            ExprNode::Class(_) => ExprKind::Class,
             ExprNode::Return(_) => ExprKind::Return,
             ExprNode::While(_) => ExprKind::While,
             ExprNode::If(_) => ExprKind::If,
-            ExprNode::Null(_) => ExprKind::Null,
+            ExprNode::Null => ExprKind::Null,
         }
     }
 
@@ -114,8 +117,8 @@ impl ExprNode {
         })
     }
 
-    pub fn object(properties: Vec<ObjectProperty>) -> ExprNode {
-        ExprNode::Object(ObjectNode {
+    pub fn map(properties: Vec<MapProperty>) -> ExprNode {
+        ExprNode::Map(MapNode {
             id: NODE_ID_COUNTER.next(),
             properties,
         })
@@ -169,8 +172,8 @@ impl ExprNode {
         })
     }
 
-    pub fn func_call(identity: IdentityNode, args: Vec<ExprNode>) -> ExprNode {
-        ExprNode::FuncCall(FunctionCallNode {
+    pub fn call(identity: IdentityNode, args: Vec<ExprNode>) -> ExprNode {
+        ExprNode::Call(CallNode {
             id: NODE_ID_COUNTER.next(),
             identity,
             arguments: args,
@@ -208,6 +211,14 @@ impl ExprNode {
         })
     }
 
+    pub fn class(parent: Option<ExprNode>, body: Vec<ExprNode>) -> ExprNode {
+        ExprNode::Class(ClassNode {
+            id: NODE_ID_COUNTER.next(),
+            superclass: parent.map(|p| Box::new(p)),
+            body,
+        })
+    }
+
     pub fn return_n(value: ExprNode) -> ExprNode {
         ExprNode::Return(ReturnNode {
             id: NODE_ID_COUNTER.next(),
@@ -237,7 +248,7 @@ impl ExprNode {
     }
 
     pub fn null() -> ExprNode {
-        ExprNode::Null(NullNode {})
+        ExprNode::Null
     }
 }
 
@@ -251,19 +262,20 @@ impl HasId for ExprNode {
             ExprNode::Identity(node) => node.id,
             ExprNode::Reference(node) => node.id,
             ExprNode::Binary(node) => node.id,
-            ExprNode::FuncCall(node) => node.id,
+            ExprNode::Call(node) => node.id,
             ExprNode::Assign(node) => node.id,
-            ExprNode::Object(node) => node.id,
+            ExprNode::Map(node) => node.id,
             ExprNode::List(node) => node.id,
             ExprNode::Logical(node) => node.id,
             ExprNode::Comparison(node) => node.id,
             ExprNode::BinarySubscribe(node) => node.id,
             ExprNode::AccessAttribute(node) => node.id,
             ExprNode::Function(node) => node.id,
+            ExprNode::Class(node) => node.id,
             ExprNode::Return(node) => node.id,
             ExprNode::While(node) => node.id,
             ExprNode::If(node) => node.id,
-            ExprNode::Null(_) => 0,
+            ExprNode::Null => 0,
         }
     }
 }
@@ -301,7 +313,7 @@ pub struct BinaryNode {
 }
 
 #[derive(Clone, Debug)]
-pub struct FunctionCallNode {
+pub struct CallNode {
     pub id: usize,
     pub identity: IdentityNode,
     pub arguments: Vec<ExprNode>,
@@ -316,13 +328,13 @@ pub struct AssignNode {
 }
 
 #[derive(Clone, Debug)]
-pub struct ObjectNode {
+pub struct MapNode {
     pub id: usize,
-    pub properties: Vec<ObjectProperty>,
+    pub properties: Vec<MapProperty>,
 }
 
 #[derive(Clone, Debug)]
-pub struct ObjectProperty {
+pub struct MapProperty {
     pub key: ExprNode,
     pub value: ExprNode,
 }
@@ -390,6 +402,13 @@ pub struct FunctionNode {
 }
 
 #[derive(Clone, Debug)]
+pub struct ClassNode {
+    pub id: usize,
+    pub superclass: Option<Box<ExprNode>>,
+    pub body: Vec<ExprNode>,
+}
+
+#[derive(Clone, Debug)]
 pub struct ReturnNode {
     pub id: usize,
     pub value: Box<ExprNode>,
@@ -409,6 +428,3 @@ pub struct IfNode {
     pub then_body: Vec<ExprNode>,
     pub else_body: Vec<ExprNode>,
 }
-
-#[derive(Clone, Debug)]
-pub struct NullNode {}

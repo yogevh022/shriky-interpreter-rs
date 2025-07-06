@@ -1,14 +1,15 @@
 use crate::compiler::ByteOp;
 use crate::compiler::byte_operations::ByteComparisonOp;
-use crate::compiler::code_object::*;
+use crate::compiler::code_object::CodeObject;
+use crate::runtime::frame::RuntimeFrame;
+use crate::runtime::values::{ClassValue, FunctionValue, Value};
 use std;
-use std::arch::x86_64::_popcnt32;
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
 use std::rc::Rc;
 
 pub struct Runtime {
     memory_stack: Vec<Rc<RefCell<Value>>>,
-    scope_stack: Vec<Rc<RefCell<CodeObject>>>,
+    scope_stack: Vec<RuntimeFrame>,
 }
 
 impl Runtime {
@@ -25,7 +26,7 @@ impl Runtime {
         let constant_ref = constant.borrow();
         let container_ref = container.borrow();
         let result = match &*container_ref {
-            Value::Object(obj) => obj.properties.get(&*constant_ref).unwrap(),
+            Value::Map(obj) => obj.properties.get(&*constant_ref).unwrap(),
             Value::List(list) => {
                 if let Value::Int(index) = constant_ref.clone() {
                     list.elements.get(index as usize).unwrap()
@@ -38,10 +39,11 @@ impl Runtime {
         self.memory_stack.push(result.clone());
     }
 
-    fn pre_assign(&mut self, scope: &CodeObject, operand: usize) {
+    fn pre_assign(&mut self, frame: &RuntimeFrame, variable_index: usize) {
         let value = self.memory_stack.pop().unwrap();
-        let var = scope.variables[operand].clone();
-        *var.borrow_mut() = value.borrow().clone();
+        let var = frame.variables[variable_index].clone();
+        let cloned = value.borrow().clone();
+        *var.borrow_mut() = cloned;
     }
 
     fn assign_subscribe(&mut self) {
@@ -49,7 +51,7 @@ impl Runtime {
         let key = self.memory_stack.pop().unwrap();
         let container = self.memory_stack.pop().unwrap();
         match &mut *container.borrow_mut() {
-            Value::Object(obj) => {
+            Value::Map(obj) => {
                 obj.properties.insert(key.borrow().clone(), value.clone());
             }
             Value::List(list) => {
@@ -62,36 +64,58 @@ impl Runtime {
         }
     }
 
-    fn call(&mut self, arg_count: usize) {
-        let func = self.memory_stack.pop().unwrap();
-        match &*func.borrow() {
-            Value::Function(func_value) => {
-                let args: Vec<Rc<RefCell<Value>>> = (0..arg_count)
-                    .map(|_| self.memory_stack.pop().unwrap())
-                    .collect();
+    fn call_function(&mut self, function_value: &FunctionValue, args: Vec<Rc<RefCell<Value>>>) {
+        let func_code_obj = function_value.clone().body;
+        let mut func_runtime_frame = RuntimeFrame::from_size(func_code_obj.variables.len());
+        function_value
+            .parameters
+            .iter()
+            .zip(args.iter().rev())
+            .for_each(|(p, v)| {
+                func_runtime_frame.variables[func_code_obj.variable_index_lookup[p]] = v.clone();
+            });
+        self.run(&func_code_obj);
+        let return_value = self
+            .memory_stack
+            .pop()
+            .unwrap_or_else(|| Rc::new(RefCell::new(Value::Null)));
+        self.memory_stack.push(return_value);
+    }
 
-                let mut func_code_obj = func_value.clone().body;
-                func_value
-                    .parameters
-                    .iter()
-                    .zip(args.iter().rev())
-                    .for_each(|(p, v)| {
-                        func_code_obj.variables[func_code_obj.variable_index_lookup[p]] = v.clone();
-                    });
-                let func_start_index = self.memory_stack.len();
-                self.run(func_code_obj);
-                let return_value = self
-                    .memory_stack
-                    .pop()
-                    .unwrap_or_else(|| Rc::new(RefCell::new(Value::Null)));
-                self.memory_stack.truncate(func_start_index);
-                self.memory_stack.push(return_value);
-            }
+    fn call_class(&mut self, class_value: &ClassValue, args: Vec<Rc<RefCell<Value>>>) {
+        let class_code_object = class_value.body.clone();
+        self.scope_stack // object initialization frame
+            .push(RuntimeFrame::from_size(class_code_object.variables.len()));
+        self.execute(&class_code_object); // load class
+        let constructor_index = class_code_object.variable_index_lookup.get("con").unwrap();
+        let constructor_func = self
+            .scope_stack
+            .last()
+            .unwrap()
+            .variables
+            .get(*constructor_index)
+            .unwrap()
+            .clone();
+        match &*constructor_func.borrow() {
+            Value::Function(func_value) => self.call_function(func_value, args),
+            _ => panic!("Invalid class constructor"),
+        }
+        self.scope_stack.pop(); // pop object initialization frame
+    }
+
+    fn call(&mut self, arg_count: usize) {
+        let callee = self.memory_stack.pop().unwrap();
+        let args: Vec<Rc<RefCell<Value>>> = (0..arg_count)
+            .map(|_| self.memory_stack.pop().unwrap())
+            .collect();
+        match &*callee.borrow() {
+            Value::Function(func_value) => self.call_function(func_value, args),
+            Value::Class(class_value) => self.call_class(class_value, args),
             _ => panic!("Called uncallable value"),
         }
     }
 
-    fn make_object(&mut self, property_count: usize) {
+    fn make_map(&mut self, property_count: usize) {
         let properties_kv: Vec<Rc<RefCell<Value>>> = self
             .memory_stack
             .drain(self.memory_stack.len() - property_count..)
@@ -103,11 +127,11 @@ impl Runtime {
                 [k, v] => {
                     properties.insert(k.borrow().clone(), v.clone());
                 }
-                _ => unreachable!("Object key without a value"),
+                _ => unreachable!("Map key without a value"),
             }
         }
         self.memory_stack
-            .push(Rc::new(RefCell::new(Value::object(properties))));
+            .push(Rc::new(RefCell::new(Value::map(properties))));
     }
 
     fn make_list(&mut self, list_size: usize) {
@@ -118,6 +142,24 @@ impl Runtime {
             .collect();
         self.memory_stack
             .push(Rc::new(RefCell::new(Value::list(list_items))));
+    }
+
+    fn make_class(&mut self, is_inheriting: bool) {
+        let maybe_class_value = self.memory_stack.pop().unwrap();
+        let superclass_ref = if is_inheriting {
+            let superclass = self.memory_stack.pop().unwrap();
+            Some(superclass.clone())
+        } else {
+            None
+        };
+        let class_code_obj = match &*maybe_class_value.borrow() {
+            Value::Class(class_value) => class_value.body.clone(),
+            _ => panic!("Invalid class code object"),
+        };
+        self.memory_stack.push(Rc::new(RefCell::new(Value::class(
+            superclass_ref,
+            class_code_obj,
+        ))));
     }
 
     fn apply_bin_op<F>(&mut self, f: F)
@@ -162,23 +204,25 @@ impl Runtime {
             .push(Rc::new(RefCell::new(Value::Bool(result))));
     }
 
-    fn execute(&mut self, scope: Rc<RefCell<CodeObject>>) {
+    fn execute(&mut self, code_object: &CodeObject) {
+        let mut frame = self.scope_stack.pop().unwrap();
         let mut ip = 0;
-        while let Some(byte_op) = scope.borrow().operations.get(ip) {
+        while let Some(byte_op) = code_object.operations.get(ip) {
             match byte_op.operation {
                 ByteOp::LoadConstant => {
-                    let constant_value = scope.borrow().constants[byte_op.operand].clone();
+                    let constant_value = code_object.constants[byte_op.operand].clone();
                     self.memory_stack.push(constant_value);
                 }
                 ByteOp::LoadVariable => {
-                    let var_name = scope.borrow().variables[byte_op.operand].clone();
-                    self.memory_stack.push(var_name);
+                    let var_value = frame.variables[byte_op.operand].clone();
+                    self.memory_stack.push(var_value);
                 }
                 ByteOp::BinarySubscribe => self.binary_subscribe(),
-                ByteOp::PreAssign => self.pre_assign(&scope.borrow(), byte_op.operand),
+                ByteOp::PreAssign => self.pre_assign(&mut frame, byte_op.operand),
                 ByteOp::AssignSubscribe => self.assign_subscribe(),
-                ByteOp::MakeObject => self.make_object(byte_op.operand),
+                ByteOp::MakeMap => self.make_map(byte_op.operand),
                 ByteOp::MakeList => self.make_list(byte_op.operand),
+                ByteOp::MakeClass => self.make_class(byte_op.operand == 1),
                 ByteOp::ReturnValue => return,
                 ByteOp::Call => self.call(byte_op.operand),
                 ByteOp::Add => self.apply_bin_op(Value::bin_add),
@@ -206,34 +250,38 @@ impl Runtime {
             }
             ip += 1;
         }
+        self.print_current_stack_status(code_object, frame);
     }
 
-    pub fn run(&mut self, code_object: CodeObject) {
-        self.scope_stack.push(Rc::new(RefCell::new(code_object)));
-        let current_scope = self.scope_stack.last().unwrap().clone();
-        self.execute(current_scope);
-
-        self.print_current_stack_status(self.scope_stack.last().unwrap().borrow().clone());
+    pub fn run(&mut self, code_object: &CodeObject) {
+        self.scope_stack
+            .push(RuntimeFrame::from_size(code_object.variables.len()));
+        self.execute(code_object);
 
         self.scope_stack.pop();
     }
 
-    pub fn print_current_stack_status(&self, code_obj: CodeObject) {
+    pub fn print_current_stack_status(
+        &self,
+        code_object: &CodeObject,
+        runtime_frame: RuntimeFrame,
+    ) {
+        println!("stack:");
+        self.memory_stack
+            .iter()
+            .for_each(|item| println!("mem {:?}", item.borrow().clone()));
         println!("variables:");
-        self.scope_stack
-            .last()
-            .unwrap()
-            .borrow()
+        runtime_frame
             .variables
             .iter()
             .for_each(|item| println!("var {:?}", item.borrow().clone()));
         println!("bytecode:");
-        for (i, val) in code_obj.operations.iter().enumerate() {
+        for (i, val) in code_object.operations.iter().enumerate() {
             println!("{}: {:?}", i, val);
         }
         println!(
             "hex: {:?}",
-            code_obj
+            code_object
                 .operations
                 .iter()
                 .map(|item| item.hex())

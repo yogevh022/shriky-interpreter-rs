@@ -1,2 +1,5 @@
-a = 1
-a++;
+class test {
+
+}
+
+a = test

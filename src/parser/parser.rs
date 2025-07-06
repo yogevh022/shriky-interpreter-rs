@@ -30,12 +30,14 @@ impl<'a> Parser<'a> {
             (TokenKind::Minus, Parser::handle_minus),
             (TokenKind::Ampersand, Parser::handle_ampersand),
             (TokenKind::Function, Parser::handle_function),
+            (TokenKind::Class, Parser::handle_class),
+            (TokenKind::Constructor, Parser::handle_constructor),
             (TokenKind::If, Parser::handle_if),
             (TokenKind::While, Parser::handle_while),
             (TokenKind::Return, Parser::handle_return),
             (TokenKind::LeftParen, Parser::handle_paren),
             (TokenKind::LeftBracket, Parser::handle_list),
-            (TokenKind::LeftCurly, Parser::handle_object),
+            (TokenKind::LeftCurly, Parser::handle_map),
             (TokenKind::Increment, Parser::handle_increment_decrement_pre),
             (TokenKind::Decrement, Parser::handle_increment_decrement_pre),
         ]);
@@ -133,13 +135,14 @@ impl<'a> Parser<'a> {
         ExprNode::reference(identity_node)
     }
 
-    fn get_current_token_string(&self) -> ExprNode {
-        ExprNode::string(self.current_token.value.clone())
+    fn eat_current_token_string(&mut self) -> ExprNode {
+        let token_string = ExprNode::string(self.current_token.value.clone());
+        self.eat(TokenKind::Identifier);
+        token_string
     }
 
     fn handle_identity(&mut self) -> ExprNode {
-        let mut address = vec![self.get_current_token_string()];
-        self.eat(TokenKind::Identifier);
+        let mut address = vec![self.eat_current_token_string()];
         while matches!(
             self.current_token.kind,
             TokenKind::Dot | TokenKind::LeftBracket | TokenKind::LeftParen
@@ -163,8 +166,7 @@ impl<'a> Parser<'a> {
 
     fn push_address_access_attribute(&mut self, address: &mut Vec<ExprNode>) {
         self.eat(TokenKind::Dot);
-        let accessed_attr = self.get_current_token_string();
-        self.eat(TokenKind::Identifier);
+        let accessed_attr = self.eat_current_token_string();
         address.push(ExprNode::access_attribute(accessed_attr));
     }
 
@@ -180,16 +182,16 @@ impl<'a> Parser<'a> {
         let args = self.get_args(TokenKind::RightParen);
         self.eat(TokenKind::RightParen);
         let func_call_identity = IdentityNode::new(mem::take(address));
-        *address = vec![ExprNode::func_call(func_call_identity, args)]
+        *address = vec![ExprNode::call(func_call_identity, args)]
     }
 
-    fn handle_object(&mut self) -> ExprNode {
-        let mut object_properties: Vec<ObjectProperty> = Vec::new();
+    fn handle_map(&mut self) -> ExprNode {
+        let mut map_properties: Vec<MapProperty> = Vec::new();
         self.eat(TokenKind::LeftCurly);
         while self.current_token.kind != TokenKind::RightCurly {
             let key = self.expr();
             self.eat(TokenKind::Colon);
-            object_properties.push(ObjectProperty {
+            map_properties.push(MapProperty {
                 key,
                 value: self.expr(),
             });
@@ -198,7 +200,7 @@ impl<'a> Parser<'a> {
             }
         }
         self.eat(TokenKind::RightCurly);
-        ExprNode::object(object_properties)
+        ExprNode::map(map_properties)
     }
 
     fn handle_list(&mut self) -> ExprNode {
@@ -242,12 +244,7 @@ impl<'a> Parser<'a> {
             .collect()
     }
 
-    fn handle_function(&mut self) -> ExprNode {
-        self.eat(TokenKind::Function);
-
-        let func_name = self.get_current_token_string();
-        self.eat(TokenKind::Identifier);
-
+    fn handle_anonymous_function(&mut self) -> ExprNode {
         self.eat(TokenKind::LeftParen);
         let string_args = self.parse_function_definition_args();
         self.eat(TokenKind::RightParen);
@@ -255,8 +252,48 @@ impl<'a> Parser<'a> {
         self.eat(TokenKind::LeftCurly);
         let func_node = ExprNode::function(string_args, self.parse(TokenKind::RightCurly));
         self.eat(TokenKind::RightCurly);
+        func_node
+    }
+
+    fn handle_constructor(&mut self) -> ExprNode {
+        let func_name = ExprNode::string(self.current_token.value.clone());
+        self.eat(TokenKind::Constructor);
+        let func_node = self.handle_anonymous_function();
 
         ExprNode::assign(IdentityNode::new(vec![func_name]), func_node, true)
+    }
+
+    fn handle_function(&mut self) -> ExprNode {
+        self.eat(TokenKind::Function);
+        let func_name = self.eat_current_token_string();
+        let func_node = self.handle_anonymous_function();
+
+        ExprNode::assign(IdentityNode::new(vec![func_name]), func_node, true)
+    }
+
+    fn handle_class(&mut self) -> ExprNode {
+        self.eat(TokenKind::Class);
+
+        let class_name = self.eat_current_token_string();
+
+        let superclass = if self.current_token.kind == TokenKind::LeftParen {
+            self.eat(TokenKind::LeftParen);
+            let superclass = self.expr();
+            self.eat(TokenKind::RightParen);
+            Some(ExprNode::identity(vec![superclass]))
+        } else {
+            None
+        };
+
+        self.eat(TokenKind::LeftCurly);
+        let class_body = self.parse(TokenKind::RightCurly);
+        self.eat(TokenKind::RightCurly);
+
+        ExprNode::assign(
+            IdentityNode::new(vec![class_name]),
+            ExprNode::class(superclass, class_body),
+            true,
+        )
     }
 
     fn handle_return(&mut self) -> ExprNode {

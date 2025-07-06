@@ -5,11 +5,11 @@ use std::fmt;
 pub enum ByteOp {
     LoadConstant,
     LoadVariable,
-    LoadGlobal,
     LoadNull,
 
     MakeList,
-    MakeObject,
+    MakeMap,
+    MakeClass,
 
     // unary
     Negate,

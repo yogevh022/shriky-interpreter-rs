@@ -12,10 +12,11 @@ fn main() {
     let mut lex = lexer::Lexer::new(&source);
     let mut parser = parser::Parser::new(&mut lex);
     let ast = parser.parse(TokenKind::EOF);
+    // dbg!(&ast);
     let mut compiler = Compiler::new();
     let code_obj = compiler.compile(ast);
     let mut runtime = runtime::Runtime::new();
     // runtime.print_current_stack_status(code_obj.clone());
     println!("{:?}", code_obj.operations);
-    runtime.run(code_obj);
+    runtime.run(&code_obj);
 }

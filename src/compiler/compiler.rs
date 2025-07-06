@@ -1,10 +1,10 @@
 use crate::compiler::byte_operations::*;
-use crate::compiler::code_object::{CodeObject, Value};
+use crate::compiler::code_object::CodeObject;
 use crate::lexer::TokenKind;
 use crate::parser::ExprNode;
 use crate::parser::nodes::*;
 use crate::parser::traits::HasId;
-use std::arch::x86_64::_mm_cmpord_pd;
+use crate::runtime::values::Value;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -20,11 +20,6 @@ impl Compiler {
     fn push_op(&mut self, code_object: &mut CodeObject, op: OpIndex) {
         code_object.operations.push(op);
         self.ip += 1;
-    }
-
-    fn push_ops(&mut self, code_object: &mut CodeObject, ops: Vec<OpIndex>) {
-        self.ip += ops.len();
-        code_object.operations.extend(ops);
     }
 
     fn binary(&mut self, code_object: &mut CodeObject, binary_node: BinaryNode) {
@@ -52,9 +47,7 @@ impl Compiler {
         let mut identity_address_iter = identity.address.into_iter();
         match identity_address_iter.next() {
             Some(ExprNode::String(string_base)) => self.load_name(code_object, string_base),
-            Some(ExprNode::FuncCall(func_call_base)) => {
-                self.function_call(code_object, func_call_base)
-            }
+            Some(ExprNode::Call(func_call_base)) => self.call(code_object, func_call_base),
             _ => panic!(
                 "Unexpected identity base: {:?}",
                 identity_address_iter.collect::<Vec<_>>()
@@ -108,9 +101,7 @@ impl Compiler {
             code_object
                 .variable_index_lookup
                 .insert(name.clone(), new_variable_index);
-            code_object
-                .variables
-                .push(Rc::new(RefCell::new(Value::Null)));
+            code_object.variables.push(name.clone());
             new_variable_index
         }
     }
@@ -183,20 +174,20 @@ impl Compiler {
                 self.compile_expr(code_object, *assign_node.value);
                 self.push_op(code_object, OpIndex::with_op(ByteOp::PreAssign, var_index));
             }
-            ExprNode::FuncCall(func_call_node) => {
+            ExprNode::Call(func_call_node) => {
                 todo!()
             }
             _ => panic!("Unexpected head of assign: {:?}", head),
         }
     }
 
-    fn make_runtime_object(&mut self, code_object: &mut CodeObject, object_node: ObjectNode) {
+    fn make_runtime_map(&mut self, code_object: &mut CodeObject, object_node: MapNode) {
         let obj_size = object_node.properties.len() * 2;
         object_node.properties.into_iter().for_each(|property| {
             self.compile_expr(code_object, property.key);
             self.compile_expr(code_object, property.value);
         });
-        self.push_op(code_object, OpIndex::with_op(ByteOp::MakeObject, obj_size));
+        self.push_op(code_object, OpIndex::with_op(ByteOp::MakeMap, obj_size));
     }
 
     fn make_runtime_list(&mut self, code_object: &mut CodeObject, list_node: ListNode) {
@@ -217,22 +208,43 @@ impl Compiler {
         );
     }
 
+    fn make_class(&mut self, code_object: &mut CodeObject, class_node: ClassNode) {
+        let class_id = class_node.id;
+        let class_inheritance_operand = if let Some(boxed_superclass) = class_node.superclass {
+            if let ExprNode::Identity(superclass) = *boxed_superclass {
+                self.identity(code_object, superclass);
+                1usize
+            } else {
+                panic!("Unexpected superclass: {:?}", *boxed_superclass);
+            }
+        } else {
+            0usize
+        };
+        let pure_class_value = Value::class(None, self.compile(class_node.body)); // inherits at runtime
+        let pure_class_const_index =
+            Compiler::cache_constant(code_object, class_id, pure_class_value);
+        self.push_op(
+            code_object,
+            OpIndex::with_op(ByteOp::LoadConstant, pure_class_const_index),
+        );
+        self.push_op(
+            code_object,
+            OpIndex::with_op(ByteOp::MakeClass, class_inheritance_operand),
+        );
+    }
+
     fn return_value(&mut self, code_object: &mut CodeObject, return_node: ReturnNode) {
         self.compile_expr(code_object, *return_node.value);
         self.push_op(code_object, OpIndex::without_op(ByteOp::ReturnValue));
     }
 
-    fn function_call(
-        &mut self,
-        code_object: &mut CodeObject,
-        function_call_node: FunctionCallNode,
-    ) {
-        let arg_count = function_call_node.arguments.len();
-        function_call_node
+    fn call(&mut self, code_object: &mut CodeObject, call_node: CallNode) {
+        let arg_count = call_node.arguments.len();
+        call_node
             .arguments
             .into_iter()
             .for_each(|arg| self.compile_expr(code_object, arg));
-        self.identity(code_object, function_call_node.identity);
+        self.identity(code_object, call_node.identity);
         self.push_op(code_object, OpIndex::with_op(ByteOp::Call, arg_count));
     }
 
@@ -304,12 +316,12 @@ impl Compiler {
             ExprNode::Int(_) | ExprNode::Float(_) | ExprNode::Bool(_) | ExprNode::String(_) => {
                 self.constant(code_object, expr.id(), Value::from_expr(expr).ok().unwrap())
             }
-            ExprNode::Object(object) => {
-                let constant_id = object.id;
-                if let Ok(obj_const) = Value::try_const_from_object(object.clone()) {
-                    self.constant(code_object, constant_id, obj_const);
+            ExprNode::Map(map) => {
+                let constant_id = map.id;
+                if let Ok(map_const) = Value::try_const_from_map(map.clone()) {
+                    self.constant(code_object, constant_id, map_const);
                 } else {
-                    self.make_runtime_object(code_object, object);
+                    self.make_runtime_map(code_object, map);
                 }
             }
             ExprNode::List(list) => {
@@ -321,9 +333,8 @@ impl Compiler {
                 }
             }
             ExprNode::Function(function_node) => self.make_function(code_object, function_node),
-            ExprNode::FuncCall(function_call_node) => {
-                self.function_call(code_object, function_call_node)
-            }
+            ExprNode::Call(call_node) => self.call(code_object, call_node),
+            ExprNode::Class(class_node) => self.make_class(code_object, class_node),
             ExprNode::Return(return_node) => self.return_value(code_object, return_node),
             ExprNode::If(if_node) => self.if_closure(code_object, if_node),
             ExprNode::While(while_node) => self.while_closure(code_object, while_node),
@@ -332,7 +343,7 @@ impl Compiler {
             ExprNode::Identity(identity_node) => self.identity(code_object, identity_node),
             ExprNode::Assign(assign_node) => self.assign(code_object, assign_node),
             ExprNode::Binary(binary_node) => self.binary(code_object, binary_node),
-            ExprNode::Null(_) => self.push_op(code_object, OpIndex::without_op(ByteOp::LoadNull)),
+            ExprNode::Null => self.push_op(code_object, OpIndex::without_op(ByteOp::LoadNull)),
             _ => panic!("Unexpected expr node: {:?}", expr),
         }
     }
