@@ -2,6 +2,7 @@ use crate::runtime::values::Value;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+#[derive(Debug)]
 pub struct RuntimeFrame {
     pub variables: Vec<Rc<RefCell<Value>>>,
 }

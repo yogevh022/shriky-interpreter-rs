@@ -93,8 +93,8 @@ impl Compiler {
         new_literal_index
     }
 
-    fn cache_variable(code_object: &mut CodeObject, name: String) -> usize {
-        if let Some(var_index) = code_object.variable_index_lookup.get(&name) {
+    fn cache_variable(code_object: &mut CodeObject, name: &String) -> usize {
+        if let Some(var_index) = code_object.variable_index_lookup.get(name) {
             *var_index
         } else {
             let new_variable_index = code_object.variables.len();
@@ -127,7 +127,7 @@ impl Compiler {
             );
             return;
         };
-        let var_index = Compiler::cache_variable(code_object, node.value);
+        let var_index = Compiler::cache_variable(code_object, &node.value);
         self.push_op(
             code_object,
             OpIndex::with_op(ByteOp::LoadVariable, var_index),
@@ -159,7 +159,7 @@ impl Compiler {
             ExprNode::AccessAttribute(access_attribute_node) => {
                 let attribute_index = match *access_attribute_node.value {
                     ExprNode::String(string_node) => {
-                        Compiler::cache_variable(code_object, string_node.value)
+                        Compiler::cache_variable(code_object, &string_node.value)
                     }
                     _ => panic!("Unexpected head of assign: {:?}", access_attribute_node),
                 };
@@ -170,7 +170,7 @@ impl Compiler {
                 );
             }
             ExprNode::String(string_node) => {
-                let var_index = Compiler::cache_variable(code_object, string_node.value);
+                let var_index = Compiler::cache_variable(code_object, &string_node.value);
                 self.compile_expr(code_object, *assign_node.value);
                 self.push_op(code_object, OpIndex::with_op(ByteOp::PreAssign, var_index));
             }
@@ -200,7 +200,11 @@ impl Compiler {
 
     fn make_function(&mut self, code_object: &mut CodeObject, function_node: FunctionNode) {
         let func_id = function_node.id;
-        let func_value = Value::function(function_node.arguments, self.compile(function_node.body));
+        let mut func_code_obj = self.compile(function_node.body);
+        function_node.arguments.iter().for_each(|arg| {
+            Compiler::cache_variable(&mut func_code_obj, arg); // cache params
+        });
+        let func_value = Value::function(function_node.arguments, func_code_obj);
         let func_const_index = Compiler::cache_constant(code_object, func_id, func_value);
         self.push_op(
             code_object,
@@ -220,12 +224,11 @@ impl Compiler {
         } else {
             0usize
         };
-        let pure_class_value = Value::class(None, self.compile(class_node.body)); // inherits at runtime
-        let pure_class_const_index =
-            Compiler::cache_constant(code_object, class_id, pure_class_value);
+        let class_value = Value::class(None, self.compile(class_node.body)); // inherits at runtime
+        let class_const_index = Compiler::cache_constant(code_object, class_id, class_value);
         self.push_op(
             code_object,
-            OpIndex::with_op(ByteOp::LoadConstant, pure_class_const_index),
+            OpIndex::with_op(ByteOp::LoadConstant, class_const_index),
         );
         self.push_op(
             code_object,
