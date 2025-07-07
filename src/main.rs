@@ -17,6 +17,6 @@ fn main() {
     let code_obj = compiler.compile(ast);
     let mut runtime = runtime::Runtime::new();
     // runtime.print_current_stack_status(code_obj.clone());
-    println!("{:?}", code_obj.operations);
+    // println!("{:?}", code_obj.operations);
     runtime.run(&code_obj);
 }

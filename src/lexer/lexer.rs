@@ -24,7 +24,7 @@ impl<'a> Lexer<'a> {
             ("fn", token::TokenKind::Function),
             ("class", token::TokenKind::Class),
             ("return", token::TokenKind::Return),
-            ("con", token::TokenKind::Constructor),
+            ("init", token::TokenKind::Initializer),
             ("and", token::TokenKind::LogicalAND),
             ("or", token::TokenKind::LogicalOR),
             ("null", token::TokenKind::Null),

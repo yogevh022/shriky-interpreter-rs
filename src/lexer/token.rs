@@ -53,7 +53,7 @@ pub enum TokenKind {
     Break,
     Continue,
     Function,
-    Constructor,
+    Initializer,
     Class,
     Return,
     Null,

@@ -1,4 +1,5 @@
 use crate::runtime::frame::RuntimeFrame;
+use crate::runtime::utils::extract_string;
 use crate::runtime::values::Value;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -34,15 +35,13 @@ pub fn assign_subscribe(memory_stack: &mut Vec<Rc<RefCell<Value>>>) {
 
 pub fn assign_attribute(memory_stack: &mut Vec<Rc<RefCell<Value>>>) {
     let value = memory_stack.pop().unwrap();
-    let attr = memory_stack.pop().unwrap();
+    let attr_name = memory_stack.pop().unwrap();
     let container = memory_stack.pop().unwrap();
-    let attr_name = match &*attr.borrow() {
-        Value::String(attr_name) => attr_name.clone(),
-        _ => panic!("Invalid type for attribute name"),
-    };
     match &mut *container.borrow_mut() {
         Value::Instance(instance_value) => {
-            instance_value.attributes.insert(attr_name, value.clone());
+            instance_value
+                .attributes
+                .insert(extract_string(&attr_name), value.clone());
         }
         _ => panic!("Invalid attribute access"),
     }

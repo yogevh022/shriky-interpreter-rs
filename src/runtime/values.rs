@@ -23,7 +23,7 @@ pub enum Value {
     Null,
 }
 
-static RUNTIME_VALUE_COUNTER: Counter = Counter::new();
+static RUNTIME_VALUE_ID: Counter = Counter::new();
 
 impl Value {
     pub fn int(value: i64) -> Value {
@@ -52,7 +52,7 @@ impl Value {
 
     pub fn function(parameters: Vec<String>, body: CodeObject) -> Value {
         Value::Function(FunctionValue {
-            id: RUNTIME_VALUE_COUNTER.next(),
+            id: RUNTIME_VALUE_ID.next(),
             parameters,
             body,
         })
@@ -60,7 +60,7 @@ impl Value {
 
     pub fn class(parent: Option<Rc<RefCell<Value>>>, body: CodeObject) -> Value {
         Value::Class(ClassValue {
-            id: RUNTIME_VALUE_COUNTER.next(),
+            id: RUNTIME_VALUE_ID.next(),
             parent, // will always be ClassValue
             body,
         })
@@ -71,14 +71,10 @@ impl Value {
         attributes: HashMap<String, Rc<RefCell<Value>>>,
     ) -> Value {
         Value::Instance(InstanceValue {
-            id: RUNTIME_VALUE_COUNTER.next(),
+            id: RUNTIME_VALUE_ID.next(),
             class,
             attributes,
         })
-    }
-
-    pub fn null() -> Value {
-        Value::Null
     }
 
     pub fn try_const_from_map(node: MapNode) -> Result<Value, ValueError> {

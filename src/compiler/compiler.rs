@@ -139,12 +139,9 @@ impl Compiler {
         self.push_op(code_object, OpIndex::without_op(ByteOp::BinarySubscribe));
     }
 
-    fn access_attribute(
-        &mut self,
-        code_object: &mut CodeObject,
-        access_attribute_node: AccessAttributeNode,
-    ) {
-        todo!()
+    fn access_attribute(&mut self, code_object: &mut CodeObject, node: AccessAttributeNode) {
+        self.compile_expr(code_object, *node.value);
+        self.push_op(code_object, OpIndex::without_op(ByteOp::AccessAttribute));
     }
 
     fn assign(&mut self, code_object: &mut CodeObject, assign_node: AssignNode) {
@@ -157,17 +154,9 @@ impl Compiler {
                 self.push_op(code_object, OpIndex::without_op(ByteOp::AssignSubscribe));
             }
             ExprNode::AccessAttribute(access_attribute_node) => {
-                let attribute_index = match *access_attribute_node.value {
-                    ExprNode::String(string_node) => {
-                        Compiler::cache_variable(code_object, &string_node.value)
-                    }
-                    _ => panic!("Unexpected head of assign: {:?}", access_attribute_node),
-                };
+                self.compile_expr(code_object, *access_attribute_node.value);
                 self.compile_expr(code_object, *assign_node.value);
-                self.push_op(
-                    code_object,
-                    OpIndex::with_op(ByteOp::AssignAttribute, attribute_index),
-                );
+                self.push_op(code_object, OpIndex::without_op(ByteOp::AssignAttribute));
             }
             ExprNode::String(string_node) => {
                 let var_index = Compiler::cache_variable(code_object, &string_node.value);

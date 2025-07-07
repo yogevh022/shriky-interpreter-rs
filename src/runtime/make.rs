@@ -29,12 +29,7 @@ pub fn make_list(memory_stack: &mut Vec<Rc<RefCell<Value>>>, list_size: usize) {
 
 pub fn make_class(memory_stack: &mut Vec<Rc<RefCell<Value>>>, is_inheriting: bool) {
     let maybe_class_value = memory_stack.pop().unwrap();
-    let superclass_ref = if is_inheriting {
-        let superclass = memory_stack.pop().unwrap();
-        Some(superclass.clone())
-    } else {
-        None
-    };
+    let superclass_ref = is_inheriting.then(|| memory_stack.pop().unwrap().clone());
     let class_code_obj = match &*maybe_class_value.borrow() {
         Value::Class(class_value) => class_value.body.clone(),
         _ => panic!("Invalid class code object"),

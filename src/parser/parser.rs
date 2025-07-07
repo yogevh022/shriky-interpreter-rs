@@ -31,7 +31,7 @@ impl<'a> Parser<'a> {
             (TokenKind::Ampersand, Parser::handle_ampersand),
             (TokenKind::Function, Parser::handle_function),
             (TokenKind::Class, Parser::handle_class),
-            (TokenKind::Constructor, Parser::handle_constructor),
+            (TokenKind::Initializer, Parser::handle_initializer),
             (TokenKind::If, Parser::handle_if),
             (TokenKind::While, Parser::handle_while),
             (TokenKind::Return, Parser::handle_return),
@@ -255,9 +255,9 @@ impl<'a> Parser<'a> {
         func_node
     }
 
-    fn handle_constructor(&mut self) -> ExprNode {
+    fn handle_initializer(&mut self) -> ExprNode {
         let func_name = ExprNode::string(self.current_token.value.clone());
-        self.eat(TokenKind::Constructor);
+        self.eat(TokenKind::Initializer);
         let func_node = self.handle_anonymous_function();
 
         ExprNode::assign(IdentityNode::new(vec![func_name]), func_node, true)
@@ -280,7 +280,7 @@ impl<'a> Parser<'a> {
             self.eat(TokenKind::LeftParen);
             let superclass = self.expr();
             self.eat(TokenKind::RightParen);
-            Some(ExprNode::identity(vec![superclass]))
+            Some(superclass)
         } else {
             None
         };

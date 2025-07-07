@@ -30,6 +30,8 @@ pub enum ByteOp {
     LogicalOr,
 
     BinarySubscribe,
+    AccessAttribute,
+
     PreAssign,
     PostAssign,
     AssignSubscribe,

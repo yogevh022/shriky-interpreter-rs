@@ -10,7 +10,9 @@ pub struct RuntimeFrame {
 impl RuntimeFrame {
     pub fn from_size(size: usize) -> Self {
         Self {
-            variables: vec![Rc::new(RefCell::new(Value::Null)); size],
+            variables: (0..size)
+                .map(|_| Rc::new(RefCell::new(Value::Null)))
+                .collect(),
         }
     }
 }

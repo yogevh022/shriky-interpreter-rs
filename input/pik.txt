@@ -1,7 +1,12 @@
 class test {
-    con (self) {
-        a = 2
-    }
+    a = 2
 }
 
-a = test()
+class hi(test) {
+
+}
+
+a = hi()
+
+a.a += 3
+b = a.a

@@ -1,5 +1,6 @@
 use crate::compiler::byte_operations::OpIndex;
 use crate::runtime::values::Value;
+use crate::utils::counter::Counter;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Debug, Display};
@@ -8,6 +9,7 @@ use std::rc::Rc;
 
 #[derive(Debug, Clone)]
 pub struct CodeObject {
+    pub id: usize,
     pub operations: Vec<OpIndex>,
     pub constants: Vec<Rc<RefCell<Value>>>, // these are never mutated, RefCell for uniformity
     pub variables: Vec<String>,
@@ -33,9 +35,12 @@ impl Eq for CodeObject {
     }
 }
 
+static CODE_OBJECT_ID: Counter = Counter::new();
+
 impl Default for CodeObject {
     fn default() -> Self {
         Self {
+            id: CODE_OBJECT_ID.next(),
             operations: Vec::new(),
             constants: Vec::new(),
             variables: Vec::new(),
