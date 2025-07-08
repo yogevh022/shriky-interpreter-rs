@@ -7,5 +7,7 @@ mod make;
 pub mod runtime;
 mod utils;
 pub mod values;
+mod access;
+mod vm;
 
 pub use runtime::Runtime;

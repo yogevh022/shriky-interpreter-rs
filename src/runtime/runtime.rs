@@ -1,21 +1,22 @@
 use crate::compiler::ByteOp;
 use crate::compiler::code_object::CodeObject;
+use crate::runtime::frame::RuntimeFrame;
+use crate::runtime::values::Value;
 use crate::runtime::assign::*;
 use crate::runtime::call::*;
 use crate::runtime::compare::*;
-use crate::runtime::frame::RuntimeFrame;
 use crate::runtime::logical::*;
 use crate::runtime::make::*;
-use crate::runtime::utils::{extract_class, extract_function, extract_string};
-use crate::runtime::values::{ClassValue, FunctionValue, Value};
+use crate::runtime::access::*;
+use crate::runtime::vm::*;
 use std;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 pub struct Runtime {
-    mem_stack: Vec<Rc<RefCell<Value>>>,
-    frames_cache: HashMap<usize, RuntimeFrame>,
+    pub(crate) mem_stack: Vec<Rc<RefCell<Value>>>,
+    pub(crate) frames_cache: HashMap<usize, RuntimeFrame>,
 }
 
 impl Runtime {
@@ -26,70 +27,13 @@ impl Runtime {
         }
     }
 
-    fn binary_subscribe(&mut self) {
-        let constant = self.mem_stack.pop().unwrap();
-        let container = self.mem_stack.pop().unwrap();
-        let constant_ref = constant.borrow();
-        let container_ref = container.borrow();
-        let result = match &*container_ref {
-            Value::Map(obj) => obj.properties.get(&*constant_ref).unwrap(),
-            Value::List(list) => {
-                if let Value::Int(index) = constant_ref.clone() {
-                    list.elements.get(index as usize).unwrap()
-                } else {
-                    panic!("Can only subscribe to lists with integers")
-                }
-            }
-            _ => panic!("Invalid type for binary subscribe"),
-        };
-        self.mem_stack.push(result.clone());
-    }
-
-    fn get_inherited_attr(
-        &mut self,
-        class_value: ClassValue,
-        attr_string: String,
-    ) -> Option<Rc<RefCell<Value>>> {
-        let code_object = class_value.body;
-        if let Some(attr_index) = code_object.variable_index_lookup.get(&attr_string) {
-            Some(self.get_code_object_frame(&code_object).variables[*attr_index].clone())
-        } else if let Some(superclass) = class_value.parent {
-            let superclass_value = extract_class(&superclass);
-            self.get_inherited_attr(superclass_value, attr_string)
-        } else {
-            None
-        }
-    }
-
-    fn access_attr(&mut self) {
-        let attr = self.mem_stack.pop().unwrap();
-        let container = self.mem_stack.pop().unwrap();
-        let attr_string = extract_string(&attr);
-        let maybe_attr_value = match &*container.borrow() {
-            Value::Instance(instance_value) => {
-                if let Some(attr_value) = instance_value.attributes.get(&attr_string) {
-                    Some(attr_value.clone())
-                } else {
-                    let class_value = extract_class(&instance_value.class);
-                    self.get_inherited_attr(class_value, attr_string)
-                }
-            }
-            _ => panic!("Invalid type for attribute access"),
-        };
-        let attr_value = maybe_attr_value.expect("Attribute not found");
-        if let Value::Method(method_value) = &mut *attr_value.borrow_mut() {
-            method_value.caller = Some(container.clone())
-        }
-        self.mem_stack.push(attr_value);
-    }
-
-    fn pop_mem_stack_value_or_null(&mut self) -> Rc<RefCell<Value>> {
+    pub(crate) fn pop_mem_stack_value_or_null(&mut self) -> Rc<RefCell<Value>> {
         self.mem_stack
             .pop()
             .unwrap_or_else(|| Rc::new(RefCell::new(Value::Null)))
     }
 
-    fn get_code_object_frame(&mut self, code_object: &CodeObject) -> &RuntimeFrame {
+    pub(crate) fn get_code_object_frame(&mut self, code_object: &CodeObject) -> &RuntimeFrame {
         if self.frames_cache.contains_key(&code_object.id) {
             return self.frames_cache.get(&code_object.id).unwrap();
         }
@@ -98,114 +42,41 @@ impl Runtime {
         self.frames_cache.insert(code_object.id, frame);
         self.frames_cache.get(&code_object.id).unwrap()
     }
-
-    fn make_instance(&mut self, value_cls: Rc<RefCell<Value>>, mut args: Vec<Rc<RefCell<Value>>>) {
-        let class_value = extract_class(&value_cls);
-        let class_code_object = class_value.body;
-        let instance = Rc::new(RefCell::new(Value::instance(value_cls, HashMap::new())));
-        let frame = self.get_code_object_frame(&class_code_object);
-        if let Some(init_func_index) = class_code_object.variable_index_lookup.get("init") {
-            if let Some(init_func) = frame.variables.get(*init_func_index) {
-                let init_func_value = extract_function(init_func);
-                args.push(instance.clone());
-                // execute init if exists
-                self.execute(
-                    &init_func_value.body,
-                    &mut get_function_runtime_frame(&init_func_value, args),
-                );
-            } else {
-                panic!("Invalid class init function index");
-            }
-        };
-        self.mem_stack.push(instance);
-    }
-
-    fn call(&mut self, arg_count: usize) {
-        let callee = self.mem_stack.pop().unwrap();
-        let mut args: Vec<Rc<RefCell<Value>>> = (0..arg_count)
-            .map(|_| self.mem_stack.pop().unwrap())
-            .collect();
-        match &*callee.borrow() {
-            Value::Function(func_value) => {
-                self.execute(
-                    &func_value.body,
-                    &mut get_function_runtime_frame(func_value, args),
-                );
-                let return_value = self.pop_mem_stack_value_or_null();
-                self.mem_stack.push(return_value);
-            }
-            Value::Method(method_value) => {
-                args.push(
-                    method_value
-                        .caller
-                        .clone()
-                        .expect("method called without caller"),
-                );
-                self.execute(
-                    &method_value.function.body,
-                    &mut get_function_runtime_frame(&method_value.function, args),
-                );
-                let return_value = self.pop_mem_stack_value_or_null();
-                self.mem_stack.push(return_value);
-            }
-            Value::Class(_) => self.make_instance(callee.clone(), args),
-            _ => panic!("Called uncallable value"),
-        }
-    }
-
-    fn apply_bin_op<F>(&mut self, f: F)
-    where
-        F: Fn(&Value, &Value) -> Value,
-    {
-        let b = self.mem_stack.pop().unwrap();
-        let a = self.mem_stack.pop().unwrap();
-        self.mem_stack
-            .push(Rc::new(RefCell::new(f(&*a.borrow(), &*b.borrow()))));
-    }
-
-    fn execute(&mut self, code_object: &CodeObject, frame: &mut RuntimeFrame) {
+    
+    pub(crate) fn execute(&mut self, code_object: &CodeObject, frame: &mut RuntimeFrame) {
         let mut ip = 0;
         while let Some(byte_op) = code_object.operations.get(ip) {
             match byte_op.operation {
-                ByteOp::LoadConstant => {
-                    let constant_value = code_object.constants[byte_op.operand].clone();
-                    self.mem_stack.push(constant_value);
-                }
-                ByteOp::LoadVariable => {
-                    let var_value = frame.variables[byte_op.operand].clone();
-                    self.mem_stack.push(var_value);
-                }
-                ByteOp::BinarySubscribe => self.binary_subscribe(),
-                ByteOp::AccessAttribute => self.access_attr(),
-                ByteOp::PreAssign => pre_assign(&mut self.mem_stack, frame, byte_op.operand),
-                ByteOp::AssignSubscribe => assign_subscribe(&mut self.mem_stack),
-                ByteOp::AssignAttribute => assign_attribute(&mut self.mem_stack),
-                ByteOp::MakeMap => make_map(&mut self.mem_stack, byte_op.operand),
-                ByteOp::MakeList => make_list(&mut self.mem_stack, byte_op.operand),
-                ByteOp::MakeClass => make_class(&mut self.mem_stack, byte_op.operand == 1),
-                ByteOp::ReturnValue => return,
-                ByteOp::Call => self.call(byte_op.operand),
-                ByteOp::Add => self.apply_bin_op(Value::bin_add),
-                ByteOp::Sub => self.apply_bin_op(Value::bin_sub),
-                ByteOp::Mul => self.apply_bin_op(Value::bin_mul),
-                ByteOp::Div => self.apply_bin_op(Value::bin_div),
-                ByteOp::IntDiv => self.apply_bin_op(Value::bin_int_div),
-                ByteOp::Mod => self.apply_bin_op(Value::bin_mod),
-                ByteOp::Exp => self.apply_bin_op(Value::bin_exp),
-                ByteOp::Compare => compare(&mut self.mem_stack, byte_op.operand),
-                ByteOp::LogicalAnd => logical_and(&mut self.mem_stack),
-                ByteOp::LogicalOr => logical_or(&mut self.mem_stack),
-                ByteOp::PopJumpIfFalse => {
-                    let condition = self.mem_stack.pop().unwrap();
-                    if !(&*condition.borrow()).is_truthy() {
-                        ip = byte_op.operand;
-                        continue;
-                    }
+                ByteOp::LoadConstant => load_constant(self, code_object, byte_op.operand),
+                ByteOp::LoadVariable => load_variable(self, frame, byte_op.operand),
+                ByteOp::BinarySubscribe => binary_subscribe(self),
+                ByteOp::AccessAttribute => access_attr(self),
+                ByteOp::PreAssign => pre_assign(self, frame, byte_op.operand),
+                ByteOp::AssignSubscribe => assign_subscribe(self),
+                ByteOp::AssignAttribute => assign_attribute(self),
+                ByteOp::MakeMap => make_map(self, byte_op.operand),
+                ByteOp::MakeList => make_list(self, byte_op.operand),
+                ByteOp::MakeClass => make_class(self, byte_op.operand == 1),
+                ByteOp::Call => call(self, byte_op.operand),
+                ByteOp::Add => apply_bin_op(self, Value::bin_add),
+                ByteOp::Sub => apply_bin_op(self, Value::bin_sub),
+                ByteOp::Mul => apply_bin_op(self, Value::bin_mul),
+                ByteOp::Div => apply_bin_op(self, Value::bin_div),
+                ByteOp::IntDiv => apply_bin_op(self, Value::bin_int_div),
+                ByteOp::Mod => apply_bin_op(self, Value::bin_mod),
+                ByteOp::Exp => apply_bin_op(self, Value::bin_exp),
+                ByteOp::Compare => compare(self, byte_op.operand),
+                ByteOp::LogicalAnd => logical_and(self),
+                ByteOp::LogicalOr => logical_or(self),
+                ByteOp::PopJumpIfFalse => if !pop_check_truthy(self) {
+                    ip = byte_op.operand;
+                    continue;
                 }
                 ByteOp::Jump => {
                     ip = byte_op.operand;
                     continue;
                 }
+                ByteOp::ReturnValue => return,
                 _ => panic!("Unimplemented {:?}", byte_op.operation),
             }
             ip += 1;
