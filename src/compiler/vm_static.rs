@@ -1,7 +1,7 @@
-use std::cell::RefCell;
-use std::rc::Rc;
 use crate::compiler::code_object::CodeObject;
 use crate::runtime::values::Value;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub(crate) fn cache_constant(
     code_object: &mut CodeObject,

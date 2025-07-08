@@ -1,19 +1,27 @@
 use crate::compiler::byte_operations::OpIndex;
-use crate::compiler::{ByteOp, Compiler};
 use crate::compiler::code_object::CodeObject;
 use crate::compiler::compiler::CompileContext;
 use crate::compiler::op::call;
 use crate::compiler::vm_static::{cache_constant, cache_variable};
+use crate::compiler::{ByteOp, Compiler};
 use crate::parser::ExprNode;
 use crate::parser::nodes::{AccessAttributeNode, BinarySubscribeNode, IdentityNode, StringNode};
 use crate::runtime::values::Value;
 
-fn binary_subscribe(compiler: &mut Compiler, code_object: &mut CodeObject, node: BinarySubscribeNode) {
+fn binary_subscribe(
+    compiler: &mut Compiler,
+    code_object: &mut CodeObject,
+    node: BinarySubscribeNode,
+) {
     compiler.compile_expr(code_object, *node.value, &CompileContext::Normal);
     compiler.push_op(code_object, OpIndex::without_op(ByteOp::BinarySubscribe));
 }
 
-fn access_attribute(compiler: &mut Compiler, code_object: &mut CodeObject, node: AccessAttributeNode) {
+fn access_attribute(
+    compiler: &mut Compiler,
+    code_object: &mut CodeObject,
+    node: AccessAttributeNode,
+) {
     compiler.compile_expr(code_object, *node.value, &CompileContext::Normal);
     compiler.push_op(code_object, OpIndex::without_op(ByteOp::AccessAttribute));
 }
@@ -27,7 +35,9 @@ pub(crate) fn identity(
     let mut identity_address_iter = identity.address.into_iter();
     match identity_address_iter.next() {
         Some(ExprNode::String(string_base)) => load_name(compiler, code_object, string_base),
-        Some(ExprNode::Call(func_call_base)) => call(compiler, code_object, func_call_base, context),
+        Some(ExprNode::Call(func_call_base)) => {
+            call(compiler, code_object, func_call_base, context)
+        }
         _ => panic!(
             "Unexpected identity base: {:?}",
             identity_address_iter.collect::<Vec<_>>()
@@ -58,7 +68,6 @@ pub(crate) fn identity_popped_head(
     }
     head
 }
-
 
 pub(crate) fn load_constant(
     compiler: &mut Compiler,

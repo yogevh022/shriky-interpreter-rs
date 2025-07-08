@@ -11,7 +11,5 @@ class cls {
     }
 }
 
-b = cls();
-b.met();
-
-z = b.a
+q = cls();
+q.met();

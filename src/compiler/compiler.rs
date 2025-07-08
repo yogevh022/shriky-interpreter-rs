@@ -1,12 +1,12 @@
 use crate::compiler::byte_operations::*;
+use crate::compiler::closure::*;
 use crate::compiler::code_object::CodeObject;
+use crate::compiler::load::*;
+use crate::compiler::make::*;
+use crate::compiler::op::*;
 use crate::parser::ExprNode;
 use crate::parser::traits::HasId;
 use crate::runtime::values::Value;
-use crate::compiler::closure::*;
-use crate::compiler::make::*;
-use crate::compiler::load::*;
-use crate::compiler::op::*;
 
 #[derive(Debug)]
 pub enum CompileContext {
@@ -36,8 +36,14 @@ impl Compiler {
         context: &CompileContext,
     ) {
         match expr {
-            ExprNode::Int(_) | ExprNode::Float(_) | ExprNode::Bool(_) | ExprNode::String(_) => 
-                load_constant(self, code_object, expr.id(), Value::from_expr(expr).ok().unwrap()),
+            ExprNode::Int(_) | ExprNode::Float(_) | ExprNode::Bool(_) | ExprNode::String(_) => {
+                load_constant(
+                    self,
+                    code_object,
+                    expr.id(),
+                    Value::from_expr(expr).ok().unwrap(),
+                )
+            }
             ExprNode::Map(map) => make_map(self, code_object, map),
             ExprNode::List(list) => make_list(self, code_object, list),
             ExprNode::Function(function_node) => match context {
@@ -45,7 +51,9 @@ impl Compiler {
                 _ => make_function(self, code_object, function_node),
             },
             ExprNode::Class(class_node) => make_class(self, code_object, class_node, context),
-            ExprNode::Identity(identity_node) => identity(self, code_object, identity_node, context),
+            ExprNode::Identity(identity_node) => {
+                identity(self, code_object, identity_node, context)
+            }
             ExprNode::Call(call_node) => call(self, code_object, call_node, context),
             ExprNode::Assign(assign_node) => assign(self, code_object, assign_node, context),
             ExprNode::Binary(binary_node) => binary(self, code_object, binary_node, context),

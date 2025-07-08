@@ -1,7 +1,7 @@
 use crate::compiler::byte_operations::OpIndex;
-use crate::compiler::{ByteOp, Compiler};
 use crate::compiler::code_object::CodeObject;
 use crate::compiler::compiler::CompileContext;
+use crate::compiler::{ByteOp, Compiler};
 use crate::parser::ExprNode;
 use crate::parser::nodes::{IfNode, WhileNode};
 
@@ -11,7 +11,11 @@ fn make_closure_body(compiler: &mut Compiler, code_object: &mut CodeObject, body
     }
 }
 
-pub(crate) fn while_closure(compiler: &mut Compiler, code_object: &mut CodeObject, while_node: WhileNode) {
+pub(crate) fn while_closure(
+    compiler: &mut Compiler,
+    code_object: &mut CodeObject,
+    while_node: WhileNode,
+) {
     let loop_body_start_index = compiler.ip;
     compiler.compile_expr(code_object, *while_node.condition, &CompileContext::Normal);
     let pop_jump_op_index = code_object.operations.len();

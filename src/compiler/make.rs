@@ -1,9 +1,9 @@
 use crate::compiler::byte_operations::OpIndex;
-use crate::compiler::{ByteOp, Compiler};
 use crate::compiler::code_object::CodeObject;
 use crate::compiler::compiler::CompileContext;
 use crate::compiler::load::{identity, load_constant};
 use crate::compiler::vm_static::*;
+use crate::compiler::{ByteOp, Compiler};
 use crate::parser::ExprNode;
 use crate::parser::nodes::{ClassNode, FunctionNode, ListNode, MapNode};
 use crate::runtime::values::{FunctionValue, Value};
@@ -51,18 +51,25 @@ fn get_function(compiler: &mut Compiler, function_node: FunctionNode) -> Functio
     FunctionValue::new(function_node.arguments, func_code_obj)
 }
 
-pub(crate) fn make_function(compiler: &mut Compiler, code_object: &mut CodeObject, function_node: FunctionNode) {
+pub(crate) fn make_function(
+    compiler: &mut Compiler,
+    code_object: &mut CodeObject,
+    function_node: FunctionNode,
+) {
     let func_id = function_node.id;
     let func_value = get_function(compiler, function_node);
-    let func_const_index =
-        cache_constant(code_object, func_id, Value::Function(func_value));
+    let func_const_index = cache_constant(code_object, func_id, Value::Function(func_value));
     compiler.push_op(
         code_object,
         OpIndex::with_op(ByteOp::LoadConstant, func_const_index),
     );
 }
 
-pub(crate) fn make_method(compiler: &mut Compiler, code_object: &mut CodeObject, function_node: FunctionNode) {
+pub(crate) fn make_method(
+    compiler: &mut Compiler,
+    code_object: &mut CodeObject,
+    function_node: FunctionNode,
+) {
     let func_value = get_function(compiler, function_node);
     let method_id = func_value.id;
     let method_value = Value::method(func_value, None); // caller known only at runtime
@@ -90,7 +97,10 @@ pub(crate) fn make_class(
     } else {
         0usize
     };
-    let class_value = Value::class(None, compiler.compile(class_node.body, &CompileContext::Class)); // inherits at runtime
+    let class_value = Value::class(
+        None,
+        compiler.compile(class_node.body, &CompileContext::Class),
+    ); // inherits at runtime
     let class_const_index = cache_constant(code_object, class_id, class_value);
     compiler.push_op(
         code_object,

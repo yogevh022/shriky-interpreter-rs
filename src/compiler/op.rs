@@ -1,12 +1,14 @@
 use crate::compiler::byte_operations::{ByteComparisonOp, OpIndex};
-use crate::compiler::{ByteOp, Compiler};
 use crate::compiler::code_object::CodeObject;
 use crate::compiler::compiler::CompileContext;
 use crate::compiler::load::{identity, identity_popped_head};
 use crate::compiler::vm_static::cache_variable;
+use crate::compiler::{ByteOp, Compiler};
 use crate::lexer::TokenKind;
 use crate::parser::ExprNode;
-use crate::parser::nodes::{AssignNode, BinaryNode, CallNode, ComparisonNode, LogicalNode, ReturnNode};
+use crate::parser::nodes::{
+    AssignNode, BinaryNode, CallNode, ComparisonNode, LogicalNode, ReturnNode,
+};
 
 pub(crate) fn binary(
     compiler: &mut Compiler,
@@ -90,9 +92,11 @@ pub(crate) fn call(
     compiler.push_op(code_object, OpIndex::with_op(ByteOp::Call, arg_count));
 }
 
-
-
-pub(crate) fn comparison(compiler: &mut Compiler, code_object: &mut CodeObject, comparison_node: ComparisonNode) {
+pub(crate) fn comparison(
+    compiler: &mut Compiler,
+    code_object: &mut CodeObject,
+    comparison_node: ComparisonNode,
+) {
     let operand = match comparison_node.operator {
         TokenKind::Equals => ByteComparisonOp::Equal,
         TokenKind::NotEquals => ByteComparisonOp::NotEqual,
@@ -113,7 +117,11 @@ pub(crate) fn comparison(compiler: &mut Compiler, code_object: &mut CodeObject, 
     );
 }
 
-pub(crate) fn logical(compiler: &mut Compiler, code_object: &mut CodeObject, logical_node: LogicalNode) {
+pub(crate) fn logical(
+    compiler: &mut Compiler,
+    code_object: &mut CodeObject,
+    logical_node: LogicalNode,
+) {
     compiler.compile_expr(code_object, *logical_node.left, &CompileContext::Normal);
     compiler.compile_expr(code_object, *logical_node.right, &CompileContext::Normal);
     let op = match logical_node.operator {

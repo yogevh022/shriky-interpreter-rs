@@ -1,13 +1,14 @@
 use crate::compiler::ByteOp;
 use crate::compiler::code_object::CodeObject;
-use crate::runtime::frame::RuntimeFrame;
-use crate::runtime::values::Value;
+use crate::runtime::access::*;
 use crate::runtime::assign::*;
 use crate::runtime::call::*;
 use crate::runtime::compare::*;
+use crate::runtime::exceptions::RuntimeError;
+use crate::runtime::frame::RuntimeFrame;
 use crate::runtime::logical::*;
 use crate::runtime::make::*;
-use crate::runtime::access::*;
+use crate::runtime::values::Value;
 use crate::runtime::vm::*;
 use std;
 use std::cell::RefCell;
@@ -42,11 +43,15 @@ impl Runtime {
         self.frames_cache.insert(code_object.id, frame);
         self.frames_cache.get(&code_object.id).unwrap()
     }
-    
-    pub(crate) fn execute(&mut self, code_object: &CodeObject, frame: &mut RuntimeFrame) {
+
+    pub(crate) fn execute(
+        &mut self,
+        code_object: &CodeObject,
+        frame: &mut RuntimeFrame,
+    ) -> Result<(), RuntimeError> {
         let mut ip = 0;
         while let Some(byte_op) = code_object.operations.get(ip) {
-            match byte_op.operation {
+            let operation_result = match byte_op.operation {
                 ByteOp::LoadConstant => load_constant(self, code_object, byte_op.operand),
                 ByteOp::LoadVariable => load_variable(self, frame, byte_op.operand),
                 ByteOp::BinarySubscribe => binary_subscribe(self),
@@ -68,24 +73,34 @@ impl Runtime {
                 ByteOp::Compare => compare(self, byte_op.operand),
                 ByteOp::LogicalAnd => logical_and(self),
                 ByteOp::LogicalOr => logical_or(self),
-                ByteOp::PopJumpIfFalse => if !pop_check_truthy(self) {
-                    ip = byte_op.operand;
-                    continue;
+                ByteOp::PopJumpIfFalse => {
+                    if !pop_check_truthy(self) {
+                        ip = byte_op.operand;
+                        continue;
+                    } else {
+                        Ok(())
+                    }
                 }
                 ByteOp::Jump => {
                     ip = byte_op.operand;
                     continue;
                 }
-                ByteOp::ReturnValue => return,
+                ByteOp::ReturnValue => return Ok(()),
                 _ => panic!("Unimplemented {:?}", byte_op.operation),
-            }
+            };
             ip += 1;
+            match operation_result {
+                Err(err) => return Err(err),
+                _ => {}
+            }
         }
+        Ok(())
     }
 
     pub fn run(&mut self, code_object: &CodeObject) {
         let mut frame = RuntimeFrame::from_size(code_object.variables.len());
-        self.execute(code_object, &mut frame);
+        let result = self.execute(code_object, &mut frame);
+        println!("{:?}", result);
         self.print_current_stack_status(code_object, frame);
     }
 

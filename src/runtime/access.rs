@@ -1,26 +1,43 @@
-use std::cell::RefCell;
-use std::rc::Rc;
 use crate::runtime::Runtime;
+use crate::runtime::exceptions::RuntimeError;
 use crate::runtime::utils::{extract_class, extract_string};
 use crate::runtime::values::{ClassValue, Value};
+use std::cell::RefCell;
+use std::rc::Rc;
 
-pub(crate) fn binary_subscribe(runtime: &mut Runtime) {
+pub(crate) fn binary_subscribe(runtime: &mut Runtime) -> Result<(), RuntimeError> {
     let constant = runtime.mem_stack.pop().unwrap();
     let container = runtime.mem_stack.pop().unwrap();
     let constant_ref = constant.borrow();
     let container_ref = container.borrow();
     let result = match &*container_ref {
-        Value::Map(obj) => obj.properties.get(&*constant_ref).unwrap(),
+        Value::Map(obj) => obj
+            .properties
+            .get(&*constant_ref)
+            .ok_or(RuntimeError::NoEntryFound(format!(
+                "Key {:?} does not exist in map",
+                &*constant_ref
+            )))?,
         Value::List(list) => {
             if let Value::Int(index) = constant_ref.clone() {
-                list.elements.get(index as usize).unwrap()
+                list.elements
+                    .get(index as usize)
+                    .ok_or(RuntimeError::OutOfBounds(format!(
+                        "List index {} is out of bounds",
+                        index
+                    )))?
             } else {
-                panic!("Can only subscribe to lists with integers")
+                Err(RuntimeError::InvalidType(
+                    "Lists can only be subscribed to with integers".to_string(),
+                ))?
             }
         }
-        _ => panic!("Invalid type for binary subscribe"),
+        _ => Err(RuntimeError::InvalidType(
+            "Attempted subscription to an unsubscribable type".to_string(),
+        ))?,
     };
     runtime.mem_stack.push(result.clone());
+    Ok(())
 }
 
 pub(crate) fn get_inherited_attr(
@@ -39,7 +56,7 @@ pub(crate) fn get_inherited_attr(
     }
 }
 
-pub(crate) fn access_attr(runtime: &mut Runtime) {
+pub(crate) fn access_attr(runtime: &mut Runtime) -> Result<(), RuntimeError> {
     let attr = runtime.mem_stack.pop().unwrap();
     let container = runtime.mem_stack.pop().unwrap();
     let attr_string = extract_string(&attr);
@@ -52,11 +69,16 @@ pub(crate) fn access_attr(runtime: &mut Runtime) {
                 get_inherited_attr(runtime, class_value, attr_string)
             }
         }
-        _ => panic!("Invalid type for attribute access"),
+        _ => {
+            return Err(RuntimeError::InvalidOperation(
+                "Cannot access attributes of a non-instance type".to_string(),
+            ));
+        }
     };
     let attr_value = maybe_attr_value.expect("Attribute not found");
     if let Value::Method(method_value) = &mut *attr_value.borrow_mut() {
         method_value.caller = Some(container.clone())
     }
     runtime.mem_stack.push(attr_value);
+    Ok(())
 }

@@ -1,12 +1,12 @@
+mod access;
 pub mod byte_operations;
+mod closure;
 pub mod code_object;
 pub mod compiler;
-mod closure;
-mod access;
-mod make;
-mod vm_static;
 mod load;
+mod make;
 mod op;
+mod vm_static;
 
 pub use byte_operations::ByteOp;
 pub use compiler::Compiler;

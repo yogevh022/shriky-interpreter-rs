@@ -1,9 +1,10 @@
+use crate::runtime::Runtime;
+use crate::runtime::exceptions::RuntimeError;
 use crate::runtime::frame::RuntimeFrame;
+use crate::runtime::make::make_instance;
 use crate::runtime::values::*;
 use std::cell::RefCell;
 use std::rc::Rc;
-use crate::runtime::make::make_instance;
-use crate::runtime::Runtime;
 
 pub(crate) fn get_function_runtime_frame(
     function_value: &FunctionValue,
@@ -20,17 +21,31 @@ pub(crate) fn get_function_runtime_frame(
     func_runtime_frame
 }
 
-pub(crate) fn call(runtime: &mut Runtime, arg_count: usize) {
+pub(crate) fn expect_args_count(
+    arg_count: usize,
+    expected_arg_count: usize,
+) -> Result<(), RuntimeError> {
+    if arg_count != expected_arg_count {
+        return Err(RuntimeError::ArgumentCount(format!(
+            "Callable expected {} arguments, got {}",
+            expected_arg_count, arg_count
+        )));
+    }
+    Ok(())
+}
+
+pub(crate) fn call(runtime: &mut Runtime, arg_count: usize) -> Result<(), RuntimeError> {
     let callee = runtime.mem_stack.pop().unwrap();
     let mut args: Vec<Rc<RefCell<Value>>> = (0..arg_count)
         .map(|_| runtime.mem_stack.pop().unwrap())
         .collect();
     match &*callee.borrow() {
         Value::Function(func_value) => {
+            expect_args_count(args.len(), func_value.parameters.len())?;
             runtime.execute(
                 &func_value.body,
                 &mut get_function_runtime_frame(func_value, args),
-            );
+            )?;
             let return_value = runtime.pop_mem_stack_value_or_null();
             runtime.mem_stack.push(return_value);
         }
@@ -41,14 +56,21 @@ pub(crate) fn call(runtime: &mut Runtime, arg_count: usize) {
                     .clone()
                     .expect("method called without caller"),
             );
+            expect_args_count(args.len(), method_value.function.parameters.len())?;
             runtime.execute(
                 &method_value.function.body,
                 &mut get_function_runtime_frame(&method_value.function, args),
-            );
+            )?;
             let return_value = runtime.pop_mem_stack_value_or_null();
             runtime.mem_stack.push(return_value);
         }
-        Value::Class(_) => make_instance(runtime, callee.clone(), args),
-        _ => panic!("Called uncallable value"),
+        Value::Instance(instance_value) => todo!(),
+        Value::Class(_) => make_instance(runtime, callee.clone(), args)?,
+        _ => {
+            return Err(RuntimeError::InvalidType(
+                "Called an uncallable value".to_string(),
+            ));
+        }
     }
+    Ok(())
 }

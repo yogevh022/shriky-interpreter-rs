@@ -1,6 +1,7 @@
 use crate::compiler::code_object::CodeObject;
 use crate::parser::ExprNode;
 use crate::parser::nodes::{ListNode, MapNode};
+use crate::runtime::exceptions::RuntimeError;
 use crate::utils::counter::Counter;
 use ordered_float::OrderedFloat;
 use std::cell::RefCell;
@@ -112,79 +113,93 @@ impl Value {
         }
     }
 
-    pub fn bin_add(&self, other: &Value) -> Value {
+    pub fn bin_add(&self, other: &Value) -> Result<Value, RuntimeError> {
         match (self, other) {
-            (Value::Int(a), Value::Int(b)) => Value::Int(a + b),
-            (Value::Int(a), Value::Float(b)) => Value::Float(OrderedFloat(*a as f64) + *b),
-            (Value::Float(a), Value::Int(b)) => Value::Float(*a + OrderedFloat(*b as f64)),
-            (Value::Float(a), Value::Float(b)) => Value::Float(*a + *b),
-            (Value::String(a), Value::String(b)) => Value::String(format!("{}{}", a, b)),
-            _ => panic!("Invalid binary operation"),
+            (Value::Int(a), Value::Int(b)) => Ok(Value::Int(a + b)),
+            (Value::Int(a), Value::Float(b)) => Ok(Value::Float(OrderedFloat(*a as f64) + *b)),
+            (Value::Float(a), Value::Int(b)) => Ok(Value::Float(*a + OrderedFloat(*b as f64))),
+            (Value::Float(a), Value::Float(b)) => Ok(Value::Float(*a + *b)),
+            (Value::String(a), Value::String(b)) => Ok(Value::String(format!("{}{}", a, b))),
+            _ => Err(RuntimeError::InvalidOperation(
+                "Invalid binary operation".to_string(),
+            )),
         }
     }
 
-    pub fn bin_sub(&self, other: &Value) -> Value {
+    pub fn bin_sub(&self, other: &Value) -> Result<Value, RuntimeError> {
         match (self, other) {
-            (Value::Int(a), Value::Int(b)) => Value::int(a - b),
-            (Value::Int(a), Value::Float(b)) => Value::float(*a as f64 - **b),
-            (Value::Float(a), Value::Int(b)) => Value::float(*a - *b as f64),
-            (Value::Float(a), Value::Float(b)) => Value::float(*a - *b),
-            _ => panic!("Invalid binary operation"),
+            (Value::Int(a), Value::Int(b)) => Ok(Value::int(a - b)),
+            (Value::Int(a), Value::Float(b)) => Ok(Value::float(*a as f64 - **b)),
+            (Value::Float(a), Value::Int(b)) => Ok(Value::float(*a - *b as f64)),
+            (Value::Float(a), Value::Float(b)) => Ok(Value::float(*a - *b)),
+            _ => Err(RuntimeError::InvalidOperation(
+                "Invalid binary operation".to_string(),
+            )),
         }
     }
 
-    pub fn bin_div(&self, other: &Value) -> Value {
+    pub fn bin_div(&self, other: &Value) -> Result<Value, RuntimeError> {
         match (self, other) {
-            (Value::Int(a), Value::Int(b)) => Value::float(*a as f64 / *b as f64),
-            (Value::Int(a), Value::Float(b)) => Value::float(*a as f64 / **b),
-            (Value::Float(a), Value::Int(b)) => Value::float(*a / *b as f64),
-            (Value::Float(a), Value::Float(b)) => Value::float(*a / *b),
-            _ => panic!("Invalid binary operation"),
+            (Value::Int(a), Value::Int(b)) => Ok(Value::float(*a as f64 / *b as f64)),
+            (Value::Int(a), Value::Float(b)) => Ok(Value::float(*a as f64 / **b)),
+            (Value::Float(a), Value::Int(b)) => Ok(Value::float(*a / *b as f64)),
+            (Value::Float(a), Value::Float(b)) => Ok(Value::float(*a / *b)),
+            _ => Err(RuntimeError::InvalidOperation(
+                "Invalid binary operation".to_string(),
+            )),
         }
     }
 
-    pub fn bin_int_div(&self, other: &Value) -> Value {
+    pub fn bin_int_div(&self, other: &Value) -> Result<Value, RuntimeError> {
         match (self, other) {
-            (Value::Int(a), Value::Int(b)) => Value::int(a / b),
-            (Value::Int(a), Value::Float(b)) => Value::float((*a as f64 / **b).floor()),
-            (Value::Float(a), Value::Int(b)) => Value::float((*a / *b as f64).floor()),
-            (Value::Float(a), Value::Float(b)) => Value::float((*a / *b).floor()),
-            _ => panic!("Invalid binary operation"),
+            (Value::Int(a), Value::Int(b)) => Ok(Value::int(a / b)),
+            (Value::Int(a), Value::Float(b)) => Ok(Value::float((*a as f64 / **b).floor())),
+            (Value::Float(a), Value::Int(b)) => Ok(Value::float((*a / *b as f64).floor())),
+            (Value::Float(a), Value::Float(b)) => Ok(Value::float((*a / *b).floor())),
+            _ => Err(RuntimeError::InvalidOperation(
+                "Invalid binary operation".to_string(),
+            )),
         }
     }
 
-    pub fn bin_mul(&self, other: &Value) -> Value {
+    pub fn bin_mul(&self, other: &Value) -> Result<Value, RuntimeError> {
         match (self, other) {
-            (Value::Int(a), Value::Int(b)) => Value::int(a * b),
-            (Value::Int(a), Value::Float(b)) => Value::float(*a as f64 * **b),
-            (Value::Float(a), Value::Int(b)) => Value::float(*a * *b as f64),
-            (Value::Float(a), Value::Float(b)) => Value::float(*a * *b),
-            _ => panic!("Invalid binary operation"),
+            (Value::Int(a), Value::Int(b)) => Ok(Value::int(a * b)),
+            (Value::Int(a), Value::Float(b)) => Ok(Value::float(*a as f64 * **b)),
+            (Value::Float(a), Value::Int(b)) => Ok(Value::float(*a * *b as f64)),
+            (Value::Float(a), Value::Float(b)) => Ok(Value::float(*a * *b)),
+            _ => Err(RuntimeError::InvalidOperation(
+                "Invalid binary operation".to_string(),
+            )),
         }
     }
 
-    pub fn bin_exp(&self, other: &Value) -> Value {
+    pub fn bin_exp(&self, other: &Value) -> Result<Value, RuntimeError> {
         match (self, other) {
             (Value::Int(a), Value::Int(b)) => {
                 if *b < 0 {
-                    return Value::float((*a as f64).powf(-b as f64));
+                    return Ok(Value::float((*a as f64).powf(-b as f64)));
                 }
-                Value::int(a.pow(*b as u32))
+                Ok(Value::int(a.pow(*b as u32)))
             }
-            (Value::Int(a), Value::Float(b)) => Value::float((*a as f64).powf(**b)),
-            (Value::Float(a), Value::Int(b)) => Value::float(a.powf(*b as f64)),
-            (Value::Float(a), Value::Float(b)) => Value::float(a.powf(**b)),
-            _ => panic!("Invalid binary operation"),
+            (Value::Int(a), Value::Float(b)) => Ok(Value::float((*a as f64).powf(**b))),
+            (Value::Float(a), Value::Int(b)) => Ok(Value::float(a.powf(*b as f64))),
+            (Value::Float(a), Value::Float(b)) => Ok(Value::float(a.powf(**b))),
+            _ => Err(RuntimeError::InvalidOperation(
+                "Invalid binary operation".to_string(),
+            )),
         }
     }
 
-    pub fn bin_mod(&self, other: &Value) -> Value {
+    pub fn bin_mod(&self, other: &Value) -> Result<Value, RuntimeError> {
         match (self, other) {
-            (Value::Int(a), Value::Int(b)) => Value::int(a % b),
-            (Value::Int(a), Value::Float(b)) => Value::float(*a as f64 % **b),
-            (Value::Float(a), Value::Int(b)) => Value::float(*a % *b as f64),
-            (Value::Float(a), Value::Float(b)) => Value::float(*a % *b),
-            _ => panic!("Invalid binary operation"),
+            (Value::Int(a), Value::Int(b)) => Ok(Value::int(a % b)),
+            (Value::Int(a), Value::Float(b)) => Ok(Value::float(*a as f64 % **b)),
+            (Value::Float(a), Value::Int(b)) => Ok(Value::float(*a % *b as f64)),
+            (Value::Float(a), Value::Float(b)) => Ok(Value::float(*a % *b)),
+            _ => Err(RuntimeError::InvalidOperation(
+                "Invalid binary operation".to_string(),
+            )),
         }
     }
 
