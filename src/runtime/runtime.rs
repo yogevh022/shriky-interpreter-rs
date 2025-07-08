@@ -65,7 +65,7 @@ impl Runtime {
         let attr = self.mem_stack.pop().unwrap();
         let container = self.mem_stack.pop().unwrap();
         let attr_string = extract_string(&attr);
-        let attr_value = match &*container.borrow() {
+        let maybe_attr_value = match &*container.borrow() {
             Value::Instance(instance_value) => {
                 if let Some(attr_value) = instance_value.attributes.get(&attr_string) {
                     Some(attr_value.clone())
@@ -76,8 +76,11 @@ impl Runtime {
             }
             _ => panic!("Invalid type for attribute access"),
         };
-        self.mem_stack
-            .push(attr_value.expect("Attribute not found"))
+        let attr_value = maybe_attr_value.expect("Attribute not found");
+        if let Value::Method(method_value) = &mut *attr_value.borrow_mut() {
+            method_value.caller = Some(container.clone())
+        }
+        self.mem_stack.push(attr_value);
     }
 
     fn pop_mem_stack_value_or_null(&mut self) -> Rc<RefCell<Value>> {
@@ -119,7 +122,7 @@ impl Runtime {
 
     fn call(&mut self, arg_count: usize) {
         let callee = self.mem_stack.pop().unwrap();
-        let args: Vec<Rc<RefCell<Value>>> = (0..arg_count)
+        let mut args: Vec<Rc<RefCell<Value>>> = (0..arg_count)
             .map(|_| self.mem_stack.pop().unwrap())
             .collect();
         match &*callee.borrow() {
@@ -127,6 +130,20 @@ impl Runtime {
                 self.execute(
                     &func_value.body,
                     &mut get_function_runtime_frame(func_value, args),
+                );
+                let return_value = self.pop_mem_stack_value_or_null();
+                self.mem_stack.push(return_value);
+            }
+            Value::Method(method_value) => {
+                args.push(
+                    method_value
+                        .caller
+                        .clone()
+                        .expect("method called without caller"),
+                );
+                self.execute(
+                    &method_value.function.body,
+                    &mut get_function_runtime_frame(&method_value.function, args),
                 );
                 let return_value = self.pop_mem_stack_value_or_null();
                 self.mem_stack.push(return_value);

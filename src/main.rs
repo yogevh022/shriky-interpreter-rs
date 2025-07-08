@@ -1,4 +1,5 @@
 use crate::compiler::Compiler;
+use crate::compiler::compiler::CompileContext;
 use crate::lexer::TokenKind;
 mod compiler;
 mod lexer;
@@ -14,7 +15,7 @@ fn main() {
     let ast = parser.parse(TokenKind::EOF);
     // dbg!(&ast);
     let mut compiler = Compiler::new();
-    let code_obj = compiler.compile(ast);
+    let code_obj = compiler.compile(ast, &CompileContext::Normal);
     let mut runtime = runtime::Runtime::new();
     // runtime.print_current_stack_status(code_obj.clone());
     // println!("{:?}", code_obj.operations);

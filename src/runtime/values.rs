@@ -18,6 +18,7 @@ pub enum Value {
     Map(MapValue),
     List(ListValue),
     Function(FunctionValue),
+    Method(MethodValue),
     Class(ClassValue),
     Instance(InstanceValue),
     Null,
@@ -51,10 +52,14 @@ impl Value {
     }
 
     pub fn function(parameters: Vec<String>, body: CodeObject) -> Value {
-        Value::Function(FunctionValue {
+        Value::Function(FunctionValue::new(parameters, body))
+    }
+
+    pub fn method(function: FunctionValue, caller: Option<Rc<RefCell<Value>>>) -> Value {
+        Value::Method(MethodValue {
             id: RUNTIME_VALUE_ID.next(),
-            parameters,
-            body,
+            function,
+            caller,
         })
     }
 
@@ -250,6 +255,7 @@ impl Value {
             Value::Map(o) => !o.properties.is_empty(),
             Value::List(l) => !l.elements.is_empty(),
             Value::Function(_) => true,
+            Value::Method(_) => true,
             Value::Class(_) => true,
             Value::Instance(_) => true,
         }
@@ -285,6 +291,16 @@ pub struct FunctionValue {
     pub body: CodeObject,
 }
 
+impl FunctionValue {
+    pub fn new(parameters: Vec<String>, body: CodeObject) -> Self {
+        Self {
+            id: RUNTIME_VALUE_ID.next(),
+            parameters,
+            body,
+        }
+    }
+}
+
 impl Debug for FunctionValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -293,6 +309,19 @@ impl Debug for FunctionValue {
             self.parameters.join(", "),
             self.body.operations
         )
+    }
+}
+
+#[derive(Eq, PartialEq, Clone, Debug)]
+pub struct MethodValue {
+    pub id: usize,
+    pub function: FunctionValue,
+    pub caller: Option<Rc<RefCell<Value>>>,
+}
+
+impl Hash for MethodValue {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state)
     }
 }
 
