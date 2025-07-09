@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::rc::Rc;
+use crate::parser::nodes::FunctionNode;
 
 #[derive(Debug, Clone)]
 pub struct CodeObject {
@@ -15,6 +16,24 @@ pub struct CodeObject {
     pub variables: Vec<String>,
     pub constant_index_lookup: HashMap<usize, usize>, // constant ExprNode id -> constant index
     pub variable_index_lookup: HashMap<String, usize>, // variable name -> variable index
+}
+
+impl CodeObject {
+    pub fn from_function(function_node: &FunctionNode) -> Self {
+        Self {
+            id: CODE_OBJECT_ID.next(),
+            operations: Vec::new(),
+            constants: Vec::new(),
+            variables: function_node.arguments.clone(),
+            constant_index_lookup: HashMap::new(),
+            variable_index_lookup: function_node
+                .arguments
+                .iter()
+                .enumerate()
+                .map(|(i, v)| (v.clone(), i))
+                .collect(),
+        }
+    }
 }
 
 impl Hash for CodeObject {

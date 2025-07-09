@@ -44,10 +44,8 @@ fn make_runtime_list(compiler: &mut Compiler, code_object: &mut CodeObject, list
 }
 
 fn get_function(compiler: &mut Compiler, function_node: FunctionNode) -> FunctionValue {
-    let mut func_code_obj = compiler.compile(function_node.body, &CompileContext::Function);
-    function_node.arguments.iter().for_each(|arg| {
-        cache_variable(&mut func_code_obj, arg); // cache params
-    });
+    let mut func_code_obj = CodeObject::from_function(&function_node); // pre caches params
+    compiler.compile_into(function_node.body, &CompileContext::Function, &mut func_code_obj);
     FunctionValue::new(function_node.arguments, func_code_obj)
 }
 

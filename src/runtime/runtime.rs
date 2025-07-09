@@ -17,6 +17,7 @@ use std::rc::Rc;
 
 pub struct Runtime {
     pub(crate) mem_stack: Vec<Rc<RefCell<Value>>>,
+    pub(crate) frames_stack: Vec<RuntimeFrame>,
     pub(crate) frames_cache: HashMap<usize, RuntimeFrame>,
 }
 
@@ -24,6 +25,7 @@ impl Runtime {
     pub fn new() -> Self {
         Self {
             mem_stack: Vec::new(),
+            frames_stack: Vec::new(),
             frames_cache: HashMap::new(),
         }
     }
@@ -34,29 +36,30 @@ impl Runtime {
             .unwrap_or_else(|| Rc::new(RefCell::new(Value::Null)))
     }
 
-    pub(crate) fn get_code_object_frame(&mut self, code_object: &CodeObject) -> &RuntimeFrame {
-        if self.frames_cache.contains_key(&code_object.id) {
-            return self.frames_cache.get(&code_object.id).unwrap();
-        }
-        let mut frame = RuntimeFrame::from_size(code_object.variables.len());
-        self.execute(&code_object, &mut frame);
-        self.frames_cache.insert(code_object.id, frame);
-        self.frames_cache.get(&code_object.id).unwrap()
-    }
-
-    pub(crate) fn execute(
+    pub(crate) fn get_code_object_frame(
         &mut self,
         code_object: &CodeObject,
-        frame: &mut RuntimeFrame,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<&RuntimeFrame, RuntimeError> {
+        if self.frames_cache.contains_key(&code_object.id) {
+            return Ok(self.frames_cache.get(&code_object.id).unwrap());
+        }
+        self.frames_stack.push(RuntimeFrame::from_co(code_object));
+        self.execute(&code_object)?;
+        let frame = self.frames_stack.pop().unwrap();
+        self.frames_cache.insert(code_object.id, frame);
+        Ok(self.frames_cache.get(&code_object.id).unwrap())
+    }
+
+    pub(crate) fn execute(&mut self, code_object: &CodeObject) -> Result<(), RuntimeError> {
         let mut ip = 0;
         while let Some(byte_op) = code_object.operations.get(ip) {
             let operation_result = match byte_op.operation {
                 ByteOp::LoadConstant => load_constant(self, code_object, byte_op.operand),
-                ByteOp::LoadVariable => load_variable(self, frame, byte_op.operand),
+                ByteOp::LoadLocal => load_local(self, byte_op.operand),
+                ByteOp::LoadNonlocal => load_nonlocal(self, code_object, byte_op.operand),
                 ByteOp::BinarySubscribe => binary_subscribe(self),
                 ByteOp::AccessAttribute => access_attr(self),
-                ByteOp::PreAssign => pre_assign(self, frame, byte_op.operand),
+                ByteOp::PreAssign => pre_assign(self, byte_op.operand),
                 ByteOp::AssignSubscribe => assign_subscribe(self),
                 ByteOp::AssignAttribute => assign_attribute(self),
                 ByteOp::MakeMap => make_map(self, byte_op.operand),
@@ -77,9 +80,8 @@ impl Runtime {
                     if !pop_check_truthy(self) {
                         ip = byte_op.operand;
                         continue;
-                    } else {
-                        Ok(())
                     }
+                    return Ok(());
                 }
                 ByteOp::Jump => {
                     ip = byte_op.operand;
@@ -98,10 +100,12 @@ impl Runtime {
     }
 
     pub fn run(&mut self, code_object: &CodeObject) {
-        let mut frame = RuntimeFrame::from_size(code_object.variables.len());
-        let result = self.execute(code_object, &mut frame);
+        let frame = RuntimeFrame::from_co(code_object);
+        self.frames_stack.push(frame);
+        self.execute(code_object);
+        let result = self.frames_stack.pop();
         println!("{:?}", result);
-        self.print_current_stack_status(code_object, frame);
+        self.print_current_stack_status(code_object, result.unwrap());
     }
 
     pub fn print_current_stack_status(

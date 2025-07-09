@@ -34,7 +34,10 @@ pub(crate) fn identity(
 ) {
     let mut identity_address_iter = identity.address.into_iter();
     match identity_address_iter.next() {
-        Some(ExprNode::String(string_base)) => load_name(compiler, code_object, string_base),
+        Some(ExprNode::String(string_base)) => match context {
+            CompileContext::Assignment => load_or_cache_local(compiler, code_object, string_base),
+            _ => load_local_or_nonlocal(compiler, code_object, string_base),
+        },
         Some(ExprNode::Call(func_call_base)) => {
             call(compiler, code_object, func_call_base, context)
         }
@@ -62,10 +65,9 @@ pub(crate) fn identity_popped_head(
     mut identity_node: IdentityNode,
     context: &CompileContext,
 ) -> ExprNode {
+    // address has > 1 items
     let head = identity_node.address.pop().unwrap();
-    if !identity_node.address.is_empty() {
-        identity(compiler, code_object, identity_node, context);
-    }
+    identity(compiler, code_object, identity_node, context);
     head
 }
 
@@ -82,17 +84,39 @@ pub(crate) fn load_constant(
     );
 }
 
-pub(crate) fn load_name(compiler: &mut Compiler, code_object: &mut CodeObject, node: StringNode) {
+fn load_cached_local(
+    compiler: &mut Compiler,
+    code_object: &mut CodeObject,
+    node: &StringNode,
+) -> Result<(), ()> {
     if let Some(var_index) = code_object.variable_index_lookup.get(&node.value) {
+        compiler.push_op(code_object, OpIndex::with_op(ByteOp::LoadLocal, *var_index));
+        return Ok(());
+    };
+    Err(())
+}
+
+pub(crate) fn load_or_cache_local(
+    compiler: &mut Compiler,
+    code_object: &mut CodeObject,
+    node: StringNode,
+) {
+    load_cached_local(compiler, code_object, &node).unwrap_or_else(|_| {
+        let var_index = cache_variable(code_object, &node.value);
+        compiler.push_op(code_object, OpIndex::with_op(ByteOp::LoadLocal, var_index));
+    });
+}
+
+pub(crate) fn load_local_or_nonlocal(
+    compiler: &mut Compiler,
+    code_object: &mut CodeObject,
+    node: StringNode,
+) {
+    load_cached_local(compiler, code_object, &node).unwrap_or_else(|_| {
+        let const_index = cache_constant(code_object, node.id, Value::string(node.value));
         compiler.push_op(
             code_object,
-            OpIndex::with_op(ByteOp::LoadVariable, *var_index),
+            OpIndex::with_op(ByteOp::LoadNonlocal, const_index),
         );
-        return;
-    };
-    let var_index = cache_variable(code_object, &node.value);
-    compiler.push_op(
-        code_object,
-        OpIndex::with_op(ByteOp::LoadVariable, var_index),
-    );
+    });
 }

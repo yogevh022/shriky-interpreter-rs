@@ -1,15 +1,6 @@
-fn test(a,b) {
-    return a + b
+z = 3;
+fn test(a) {
+    return a + z
 }
 
-z = test(1,2);
-
-class cls {
-    a = 2
-    fn met(self) {
-        self.a += 10
-    }
-}
-
-q = cls();
-q.met();
+q = test(4);

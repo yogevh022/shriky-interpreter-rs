@@ -11,13 +11,14 @@ pub(crate) fn binary_subscribe(runtime: &mut Runtime) -> Result<(), RuntimeError
     let constant_ref = constant.borrow();
     let container_ref = container.borrow();
     let result = match &*container_ref {
-        Value::Map(obj) => obj
-            .properties
-            .get(&*constant_ref)
-            .ok_or(RuntimeError::NoEntryFound(format!(
-                "Key {:?} does not exist in map",
-                &*constant_ref
-            )))?,
+        Value::Map(obj) => {
+            obj.properties
+                .get(&*constant_ref)
+                .ok_or(RuntimeError::EntryNotFound(format!(
+                    "Key {:?} does not exist in map",
+                    &*constant_ref
+                )))?
+        }
         Value::List(list) => {
             if let Value::Int(index) = constant_ref.clone() {
                 list.elements
@@ -44,15 +45,17 @@ pub(crate) fn get_inherited_attr(
     runtime: &mut Runtime,
     class_value: ClassValue,
     attr_string: String,
-) -> Option<Rc<RefCell<Value>>> {
+) -> Result<Option<Rc<RefCell<Value>>>, RuntimeError> {
     let code_object = class_value.body;
     if let Some(attr_index) = code_object.variable_index_lookup.get(&attr_string) {
-        Some(runtime.get_code_object_frame(&code_object).variables[*attr_index].clone())
+        Ok(Some(
+            runtime.get_code_object_frame(&code_object)?.variables[*attr_index].clone(),
+        ))
     } else if let Some(superclass) = class_value.parent {
         let superclass_value = extract_class(&superclass);
         get_inherited_attr(runtime, superclass_value, attr_string)
     } else {
-        None
+        Ok(None)
     }
 }
 
@@ -66,7 +69,7 @@ pub(crate) fn access_attr(runtime: &mut Runtime) -> Result<(), RuntimeError> {
                 Some(attr_value.clone())
             } else {
                 let class_value = extract_class(&instance_value.class);
-                get_inherited_attr(runtime, class_value, attr_string)
+                get_inherited_attr(runtime, class_value, attr_string)?
             }
         }
         _ => {

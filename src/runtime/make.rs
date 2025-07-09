@@ -62,17 +62,18 @@ pub(crate) fn make_instance(
     let class_value = extract_class(&value_cls);
     let class_code_object = class_value.body;
     let instance = Rc::new(RefCell::new(Value::instance(value_cls, HashMap::new())));
-    let frame = runtime.get_code_object_frame(&class_code_object);
+    let frame = runtime.get_code_object_frame(&class_code_object)?;
+    // execute init if exists
     if let Some(init_func_index) = class_code_object.variable_index_lookup.get("init") {
         if let Some(init_func) = frame.variables.get(*init_func_index) {
             let init_func_value = extract_function(init_func);
             args.push(instance.clone());
             expect_args_count(args.len(), init_func_value.parameters.len())?;
-            // execute init if exists
-            runtime.execute(
-                &init_func_value.body,
-                &mut get_function_runtime_frame(&init_func_value, args),
-            )?;
+            runtime
+                .frames_stack
+                .push(get_function_runtime_frame(&init_func_value, args));
+            runtime.execute(&init_func_value.body)?;
+            runtime.frames_stack.pop();
         } else {
             panic!("Invalid class init function index, compiler level error");
         }

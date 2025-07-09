@@ -39,25 +39,31 @@ pub(crate) fn binary(
 pub(crate) fn assign(
     compiler: &mut Compiler,
     code_object: &mut CodeObject,
-    assign_node: AssignNode,
+    mut assign_node: AssignNode,
     context: &CompileContext,
 ) {
-    // this loads rest of identity to the stack vv
-    let head = identity_popped_head(compiler, code_object, assign_node.identity, context);
+    let mut ctx = context;
+    let head = if assign_node.identity.address.len() > 1 {
+        // this also loads the rest of identity to the stack vv
+        identity_popped_head(compiler, code_object, assign_node.identity, &CompileContext::Assignment)
+    } else {
+        ctx = &CompileContext::Assignment; // only context assignment if the head is also the root
+        assign_node.identity.address.pop().unwrap()
+    };
     match head {
         ExprNode::BinarySubscribe(binary_subscribe_node) => {
-            compiler.compile_expr(code_object, *binary_subscribe_node.value, context);
-            compiler.compile_expr(code_object, *assign_node.value, context);
+            compiler.compile_expr(code_object, *binary_subscribe_node.value, ctx);
+            compiler.compile_expr(code_object, *assign_node.value, ctx);
             compiler.push_op(code_object, OpIndex::without_op(ByteOp::AssignSubscribe));
         }
         ExprNode::AccessAttribute(access_attribute_node) => {
-            compiler.compile_expr(code_object, *access_attribute_node.value, context);
-            compiler.compile_expr(code_object, *assign_node.value, context);
+            compiler.compile_expr(code_object, *access_attribute_node.value, ctx);
+            compiler.compile_expr(code_object, *assign_node.value, ctx);
             compiler.push_op(code_object, OpIndex::without_op(ByteOp::AssignAttribute));
         }
         ExprNode::String(string_node) => {
             let var_index = cache_variable(code_object, &string_node.value);
-            compiler.compile_expr(code_object, *assign_node.value, context);
+            compiler.compile_expr(code_object, *assign_node.value, ctx);
             compiler.push_op(code_object, OpIndex::with_op(ByteOp::PreAssign, var_index));
         }
         ExprNode::Call(func_call_node) => {

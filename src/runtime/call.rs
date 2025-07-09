@@ -10,7 +10,7 @@ pub(crate) fn get_function_runtime_frame(
     function_value: &FunctionValue,
     args: Vec<Rc<RefCell<Value>>>,
 ) -> RuntimeFrame {
-    let mut func_runtime_frame = RuntimeFrame::from_size(function_value.body.variables.len());
+    let mut func_runtime_frame = RuntimeFrame::from_co(&function_value.body);
     function_value
         .parameters
         .iter()
@@ -42,10 +42,11 @@ pub(crate) fn call(runtime: &mut Runtime, arg_count: usize) -> Result<(), Runtim
     match &*callee.borrow() {
         Value::Function(func_value) => {
             expect_args_count(args.len(), func_value.parameters.len())?;
-            runtime.execute(
-                &func_value.body,
-                &mut get_function_runtime_frame(func_value, args),
-            )?;
+            runtime
+                .frames_stack
+                .push(get_function_runtime_frame(func_value, args));
+            runtime.execute(&func_value.body)?;
+            runtime.frames_stack.pop();
             let return_value = runtime.pop_mem_stack_value_or_null();
             runtime.mem_stack.push(return_value);
         }
@@ -57,10 +58,10 @@ pub(crate) fn call(runtime: &mut Runtime, arg_count: usize) -> Result<(), Runtim
                     .expect("method called without caller"),
             );
             expect_args_count(args.len(), method_value.function.parameters.len())?;
-            runtime.execute(
-                &method_value.function.body,
-                &mut get_function_runtime_frame(&method_value.function, args),
-            )?;
+            runtime
+                .frames_stack
+                .push(get_function_runtime_frame(&method_value.function, args));
+            runtime.execute(&method_value.function.body)?;
             let return_value = runtime.pop_mem_stack_value_or_null();
             runtime.mem_stack.push(return_value);
         }

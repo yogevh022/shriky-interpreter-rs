@@ -12,6 +12,7 @@ use crate::runtime::values::Value;
 pub enum CompileContext {
     Function,
     Class,
+    Assignment,
     Normal,
 }
 
@@ -46,10 +47,19 @@ impl Compiler {
             }
             ExprNode::Map(map) => make_map(self, code_object, map),
             ExprNode::List(list) => make_list(self, code_object, list),
-            ExprNode::Function(function_node) => match context {
-                CompileContext::Class => make_method(self, code_object, function_node),
-                _ => make_function(self, code_object, function_node),
-            },
+            ExprNode::Function(function_node) => {
+                if matches!(context, CompileContext::Class)
+                    && function_node
+                        .arguments
+                        .first()
+                        .is_some_and(|arg| arg == "self")
+                {
+                    // class methods without self arg are static (regular functions)
+                    make_method(self, code_object, function_node);
+                } else {
+                    make_function(self, code_object, function_node);
+                }
+            }
             ExprNode::Class(class_node) => make_class(self, code_object, class_node, context),
             ExprNode::Identity(identity_node) => {
                 identity(self, code_object, identity_node, context)
@@ -67,11 +77,15 @@ impl Compiler {
         }
     }
 
+    pub fn compile_into(&mut self, ast: Vec<ExprNode>, context: &CompileContext, code_object: &mut CodeObject) {
+        for ast_node in ast.into_iter() {
+            self.compile_expr(code_object, ast_node, context);
+        }
+    }
+    
     pub fn compile(&mut self, ast: Vec<ExprNode>, context: &CompileContext) -> CodeObject {
         let mut code_object = CodeObject::default();
-        for ast_node in ast.into_iter() {
-            self.compile_expr(&mut code_object, ast_node, context);
-        }
+        self.compile_into(ast, context, &mut code_object);
         code_object
     }
 }
