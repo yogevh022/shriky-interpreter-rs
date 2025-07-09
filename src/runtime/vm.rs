@@ -1,7 +1,7 @@
 use crate::compiler::code_object::CodeObject;
 use crate::runtime::Runtime;
 use crate::runtime::exceptions::RuntimeError;
-use crate::runtime::utils::extract_string;
+use crate::runtime::utils::extract_int;
 use crate::runtime::values::Value;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -25,21 +25,25 @@ pub(crate) fn load_local(runtime: &mut Runtime, variable_index: usize) -> Result
 
 pub(crate) fn load_nonlocal(
     runtime: &mut Runtime,
-    code_object: &CodeObject,
-    constant_index: usize,
+    nonlocal_index: usize,
 ) -> Result<(), RuntimeError> {
-    let nonlocal_name = extract_string(&code_object.constants[constant_index]);
-    println!("nonlocal name {:?}", nonlocal_name);
-    for frame in runtime.frames_stack[..runtime.frames_stack.len().saturating_sub(1)]
-        .iter()
-        .rev()
-    {
-        if let Some(var_index) = frame.variable_index_lookup.get(&nonlocal_name) {
-            runtime.mem_stack.push(frame.variables[*var_index].clone());
-            return Ok(());
-        }
-    }
-    Err(RuntimeError::VariableNotFound(nonlocal_name))
+    let frame_index = extract_int(&runtime.mem_stack.pop().unwrap()) as usize;
+    let nonlocal_value =
+        runtime.frames_stack.get(frame_index).unwrap().variables[nonlocal_index].clone();
+    runtime.mem_stack.push(nonlocal_value);
+    Ok(())
+}
+
+pub(crate) fn load_scope(runtime: &mut Runtime, code_object_id: usize) -> Result<(), RuntimeError> {
+    let scope_frame_index = runtime
+        .frames_stack_id_lookup
+        .get(&code_object_id)
+        .unwrap()
+        .last()
+        .unwrap();
+    let index_value = Value::Int(*scope_frame_index as i64);
+    runtime.mem_stack.push(Rc::new(RefCell::new(index_value)));
+    Ok(())
 }
 
 pub(crate) fn pop_check_truthy(runtime: &mut Runtime) -> bool {

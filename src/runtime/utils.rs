@@ -22,3 +22,10 @@ pub fn extract_string(value: &Rc<RefCell<Value>>) -> String {
         _ => panic!("Unexpected value of type {:?}", *value.borrow()),
     }
 }
+
+pub fn extract_int(value: &Rc<RefCell<Value>>) -> i64 {
+    match &*value.borrow() {
+        Value::Int(value) => *value,
+        _ => panic!("Unexpected value of type {:?}", *value.borrow()),
+    }
+}

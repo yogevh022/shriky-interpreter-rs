@@ -1,6 +1,8 @@
-z = 3;
-fn test(a) {
-    return a + z
+fn rec(z) {
+    if z > 0 {
+        return rec(z-1) + z;
+    }
+    return z;
 }
 
-q = test(4);
+b = rec(5);

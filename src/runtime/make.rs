@@ -69,11 +69,9 @@ pub(crate) fn make_instance(
             let init_func_value = extract_function(init_func);
             args.push(instance.clone());
             expect_args_count(args.len(), init_func_value.parameters.len())?;
-            runtime
-                .frames_stack
-                .push(get_function_runtime_frame(&init_func_value, args));
+            runtime.push_to_frame_stack(get_function_runtime_frame(&init_func_value, args));
             runtime.execute(&init_func_value.body)?;
-            runtime.frames_stack.pop();
+            runtime.pop_from_frame_stack();
         } else {
             panic!("Invalid class init function index, compiler level error");
         }

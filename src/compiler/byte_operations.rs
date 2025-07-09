@@ -6,6 +6,7 @@ pub enum ByteOp {
     LoadConstant,
     LoadLocal,
     LoadNonlocal,
+    LoadScope,
     LoadNull,
 
     MakeList,

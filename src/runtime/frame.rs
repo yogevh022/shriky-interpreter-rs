@@ -6,6 +6,7 @@ use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct RuntimeFrame {
+    pub code_object_id: usize,
     pub variables: Vec<Rc<RefCell<Value>>>,
     pub variable_index_lookup: HashMap<String, usize>,
 }
@@ -13,6 +14,7 @@ pub struct RuntimeFrame {
 impl RuntimeFrame {
     pub fn from_co(code_object: &CodeObject) -> Self {
         Self {
+            code_object_id: code_object.id,
             variables: (0..code_object.variables.len())
                 .map(|_| Rc::new(RefCell::new(Value::Null)))
                 .collect(),

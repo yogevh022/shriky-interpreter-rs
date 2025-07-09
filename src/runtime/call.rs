@@ -42,11 +42,9 @@ pub(crate) fn call(runtime: &mut Runtime, arg_count: usize) -> Result<(), Runtim
     match &*callee.borrow() {
         Value::Function(func_value) => {
             expect_args_count(args.len(), func_value.parameters.len())?;
-            runtime
-                .frames_stack
-                .push(get_function_runtime_frame(func_value, args));
+            runtime.push_to_frame_stack(get_function_runtime_frame(func_value, args));
             runtime.execute(&func_value.body)?;
-            runtime.frames_stack.pop();
+            runtime.pop_from_frame_stack();
             let return_value = runtime.pop_mem_stack_value_or_null();
             runtime.mem_stack.push(return_value);
         }
@@ -58,10 +56,9 @@ pub(crate) fn call(runtime: &mut Runtime, arg_count: usize) -> Result<(), Runtim
                     .expect("method called without caller"),
             );
             expect_args_count(args.len(), method_value.function.parameters.len())?;
-            runtime
-                .frames_stack
-                .push(get_function_runtime_frame(&method_value.function, args));
+            runtime.push_to_frame_stack(get_function_runtime_frame(&method_value.function, args));
             runtime.execute(&method_value.function.body)?;
+            runtime.pop_from_frame_stack();
             let return_value = runtime.pop_mem_stack_value_or_null();
             runtime.mem_stack.push(return_value);
         }

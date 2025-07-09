@@ -1,4 +1,5 @@
 use crate::compiler::byte_operations::OpIndex;
+use crate::parser::nodes::FunctionNode;
 use crate::runtime::values::Value;
 use crate::utils::counter::Counter;
 use std::cell::RefCell;
@@ -6,7 +7,6 @@ use std::collections::HashMap;
 use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::rc::Rc;
-use crate::parser::nodes::FunctionNode;
 
 #[derive(Debug, Clone)]
 pub struct CodeObject {

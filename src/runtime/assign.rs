@@ -1,6 +1,5 @@
 use crate::runtime::Runtime;
 use crate::runtime::exceptions::RuntimeError;
-use crate::runtime::frame::RuntimeFrame;
 use crate::runtime::utils::extract_string;
 use crate::runtime::values::Value;
 
@@ -9,7 +8,6 @@ pub fn pre_assign(runtime: &mut Runtime, variable_index: usize) -> Result<(), Ru
     let value = runtime.mem_stack.pop().unwrap();
     let var = frame.variables[variable_index].clone();
     let cloned_value = value.borrow().clone();
-    println!("{:?} = {:?}", var.as_ptr(), cloned_value);
     *var.borrow_mut() = cloned_value;
     Ok(())
 }
