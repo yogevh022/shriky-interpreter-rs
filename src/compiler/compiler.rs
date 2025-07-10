@@ -6,7 +6,7 @@ use crate::compiler::make::*;
 use crate::compiler::op::*;
 use crate::parser::ExprNode;
 use crate::parser::traits::HasId;
-use crate::runtime::values::Value;
+use crate::runtime::value::Value;
 use std::cell::RefCell;
 use std::rc::Rc;
 

@@ -1,8 +1,8 @@
 use crate::compiler::code_object::CodeObject;
 use crate::runtime::Runtime;
 use crate::runtime::exceptions::RuntimeError;
-use crate::runtime::utils::extract_int;
-use crate::runtime::values::Value;
+use crate::runtime::utils::extract_int_ref;
+use crate::runtime::value::Value;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -27,7 +27,7 @@ pub(crate) fn load_nonlocal(
     runtime: &mut Runtime,
     nonlocal_index: usize,
 ) -> Result<(), RuntimeError> {
-    let frame_index = extract_int(&runtime.mem_stack.pop().unwrap()) as usize;
+    let frame_index = extract_int_ref(&runtime.mem_stack.pop().unwrap()) as usize;
     let nonlocal_value =
         runtime.frames_stack.get(frame_index).unwrap().variables[nonlocal_index].clone();
     runtime.mem_stack.push(nonlocal_value);
@@ -41,7 +41,7 @@ pub(crate) fn load_scope(runtime: &mut Runtime, code_object_id: usize) -> Result
         .unwrap()
         .last()
         .unwrap();
-    let index_value = Value::Int(*scope_frame_index as i64);
+    let index_value = Value::int(*scope_frame_index as i64);
     runtime.mem_stack.push(Rc::new(RefCell::new(index_value)));
     Ok(())
 }
@@ -53,12 +53,13 @@ pub(crate) fn pop_check_truthy(runtime: &mut Runtime) -> bool {
 
 pub(crate) fn apply_bin_op<F>(runtime: &mut Runtime, f: F) -> Result<(), RuntimeError>
 where
-    F: Fn(&Value, &Value) -> Result<Value, RuntimeError>,
+    F: Fn(&mut Value, &Value) -> Result<Value, RuntimeError>,
 {
     let b = runtime.mem_stack.pop().unwrap();
     let a = runtime.mem_stack.pop().unwrap();
-    runtime
-        .mem_stack
-        .push(Rc::new(RefCell::new(f(&*a.borrow(), &*b.borrow())?)));
+    runtime.mem_stack.push(Rc::new(RefCell::new(f(
+        &mut *a.borrow_mut(),
+        &*b.borrow(),
+    )?)));
     Ok(())
 }

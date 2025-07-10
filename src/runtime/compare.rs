@@ -1,7 +1,8 @@
 use crate::compiler::byte_operations::ByteComparisonOp;
 use crate::runtime::Runtime;
 use crate::runtime::exceptions::RuntimeError;
-use crate::runtime::values::Value;
+use crate::runtime::value::Value;
+use crate::runtime::value::traits::Binary;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -10,15 +11,13 @@ pub fn compare(runtime: &mut Runtime, comparison_operand: usize) -> Result<(), R
     let b = runtime.mem_stack.pop().unwrap();
     let a = runtime.mem_stack.pop().unwrap();
     let result = match comparison {
-        ByteComparisonOp::Equal => a.borrow().equals(&*b.borrow()),
-        ByteComparisonOp::Greater => a.borrow().greater_than(&*b.borrow()),
-        ByteComparisonOp::GreaterEqual => a.borrow().greater_than_equals(&*b.borrow()),
-        ByteComparisonOp::Less => a.borrow().less_than(&*b.borrow()),
-        ByteComparisonOp::LessEqual => a.borrow().less_than_equals(&*b.borrow()),
+        ByteComparisonOp::Equal => a.borrow_mut().equals(&*b.borrow()),
+        ByteComparisonOp::Greater => a.borrow_mut().greater(&*b.borrow()),
+        ByteComparisonOp::GreaterEqual => a.borrow_mut().greater_equals(&*b.borrow()),
+        ByteComparisonOp::Less => a.borrow_mut().less(&*b.borrow()),
+        ByteComparisonOp::LessEqual => a.borrow_mut().less_equals(&*b.borrow()),
         _ => panic!("Unimplemented comparison op: {:?}", comparison),
     };
-    runtime
-        .mem_stack
-        .push(Rc::new(RefCell::new(Value::Bool(result))));
+    runtime.mem_stack.push(Rc::new(RefCell::new(result?)));
     Ok(())
 }

@@ -8,7 +8,7 @@ mod logical;
 mod make;
 pub mod runtime;
 mod utils;
-pub mod values;
+pub mod value;
 mod vm;
 
 pub use runtime::Runtime;

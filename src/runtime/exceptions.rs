@@ -6,4 +6,5 @@ pub(crate) enum RuntimeError {
     InvalidOperation(String),
     InvalidType(String),
     ArgumentCount(String),
+    AttributeError(String),
 }

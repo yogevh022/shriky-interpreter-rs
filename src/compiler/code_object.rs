@@ -1,6 +1,6 @@
 use crate::compiler::byte_operations::OpIndex;
 use crate::parser::nodes::FunctionNode;
-use crate::runtime::values::Value;
+use crate::runtime::value::Value;
 use crate::utils::counter::Counter;
 use std::cell::RefCell;
 use std::collections::HashMap;

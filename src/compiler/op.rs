@@ -55,7 +55,15 @@ pub(crate) fn assign(
             &CompileContext::Assignment,
         )
     } else {
-        ctx = &CompileContext::Assignment; // only context assignment if the head is also the root
+        // assigning to a root address (head is root)
+        // now we check whether/where this needs to be cached
+        ctx = if matches!(context, CompileContext::Class) {
+            // class context takes priority
+            &context
+        } else {
+            // otherwise set the context to assignment (for caching/scoping logic)
+            &CompileContext::Assignment
+        };
         assign_node.identity.address.pop().unwrap()
     };
     match head {

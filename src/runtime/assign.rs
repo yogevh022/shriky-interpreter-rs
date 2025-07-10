@@ -1,7 +1,7 @@
 use crate::runtime::Runtime;
 use crate::runtime::exceptions::RuntimeError;
-use crate::runtime::utils::extract_string;
-use crate::runtime::values::Value;
+use crate::runtime::utils::extract_string_ref;
+use crate::runtime::value::Value;
 
 pub fn pre_assign(runtime: &mut Runtime, variable_index: usize) -> Result<(), RuntimeError> {
     let frame = runtime.frames_stack.last().unwrap();
@@ -23,7 +23,7 @@ pub fn assign_subscribe(runtime: &mut Runtime) -> Result<(), RuntimeError> {
         }
         Value::List(list) => {
             if let Value::Int(index) = key.borrow().clone() {
-                list.elements.insert(index as usize, value.clone());
+                list.elements.insert(index.0 as usize, value.clone());
                 return Ok(());
             }
             Err(RuntimeError::InvalidType(
@@ -44,7 +44,7 @@ pub fn assign_attribute(runtime: &mut Runtime) -> Result<(), RuntimeError> {
         Value::Instance(instance_value) => {
             instance_value
                 .attributes
-                .insert(extract_string(&attr_name), value.clone());
+                .insert(extract_string_ref(&attr_name), value.clone());
             Ok(())
         }
         _ => Err(RuntimeError::InvalidOperation(

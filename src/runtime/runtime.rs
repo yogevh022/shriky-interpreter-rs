@@ -8,7 +8,8 @@ use crate::runtime::exceptions::RuntimeError;
 use crate::runtime::frame::RuntimeFrame;
 use crate::runtime::logical::*;
 use crate::runtime::make::*;
-use crate::runtime::values::Value;
+use crate::runtime::value::traits::Binary;
+use crate::runtime::value::{Value, ValueRef};
 use crate::runtime::vm::*;
 use std;
 use std::cell::RefCell;
@@ -16,7 +17,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 pub struct Runtime {
-    pub(crate) mem_stack: Vec<Rc<RefCell<Value>>>,
+    pub(crate) mem_stack: Vec<ValueRef>,
     pub(crate) frames_stack: Vec<RuntimeFrame>,
     pub(crate) frames_cache: HashMap<usize, RuntimeFrame>,
     pub(crate) frames_stack_id_lookup: HashMap<usize, Vec<usize>>,
@@ -65,7 +66,7 @@ impl Runtime {
         popped_frame
     }
 
-    pub(crate) fn pop_mem_stack_value_or_null(&mut self) -> Rc<RefCell<Value>> {
+    pub(crate) fn pop_mem_stack_value_or_null(&mut self) -> ValueRef {
         self.mem_stack
             .pop()
             .unwrap_or_else(|| Rc::new(RefCell::new(Value::Null)))
@@ -102,13 +103,13 @@ impl Runtime {
                 ByteOp::MakeList => make_list(self, byte_op.operand),
                 ByteOp::MakeClass => make_class(self, byte_op.operand == 1),
                 ByteOp::Call => call(self, byte_op.operand),
-                ByteOp::Add => apply_bin_op(self, Value::bin_add),
-                ByteOp::Sub => apply_bin_op(self, Value::bin_sub),
-                ByteOp::Mul => apply_bin_op(self, Value::bin_mul),
-                ByteOp::Div => apply_bin_op(self, Value::bin_div),
-                ByteOp::IntDiv => apply_bin_op(self, Value::bin_int_div),
-                ByteOp::Mod => apply_bin_op(self, Value::bin_mod),
-                ByteOp::Exp => apply_bin_op(self, Value::bin_exp),
+                ByteOp::Add => apply_bin_op(self, Value::add),
+                ByteOp::Sub => apply_bin_op(self, Value::sub),
+                ByteOp::Mul => apply_bin_op(self, Value::mul),
+                ByteOp::Div => apply_bin_op(self, Value::div),
+                ByteOp::IntDiv => apply_bin_op(self, Value::int_div),
+                ByteOp::Mod => apply_bin_op(self, Value::modulus),
+                ByteOp::Exp => apply_bin_op(self, Value::pow),
                 ByteOp::Compare => compare(self, byte_op.operand),
                 ByteOp::LogicalAnd => logical_and(self),
                 ByteOp::LogicalOr => logical_or(self),
@@ -136,12 +137,22 @@ impl Runtime {
     }
 
     pub fn run(&mut self, code_object: &CodeObject) {
+        self.print_ast(code_object);
         let frame = RuntimeFrame::from_co(code_object);
         self.push_to_frame_stack(frame);
-        self.execute(code_object);
-        let result = self.pop_from_frame_stack();
-        // println!("{:?}", result);
-        self.print_current_stack_status(code_object, result);
+        let status = self.execute(code_object); // todo catch this
+        if let Err(err) = status {
+            println!("{:?}", err);
+        } else {
+            let result = self.pop_from_frame_stack();
+            self.print_current_stack_status(code_object, result);
+        }
+    }
+
+    pub fn print_ast(&self, co: &CodeObject) {
+        for q in co.operations.iter() {
+            println!("{:?}", q);
+        }
     }
 
     pub fn print_current_stack_status(

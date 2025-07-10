@@ -1,8 +1,15 @@
-fn rec(z) {
-    if z > 0 {
-        return rec(z-1) + z;
+class t {
+    a = [1,2,3]
+    fn req(self) {
+        if self.a.len() > 0 {
+            self.a.remove(self.a.len()-1);
+            self.req();
+        }
+        return;
     }
-    return z;
 }
 
-b = rec(5);
+a = t();
+b = a.req();
+zzz = a.a.len();
+w = 1 + (5/2) + (55*5) / 5 / (2**2);

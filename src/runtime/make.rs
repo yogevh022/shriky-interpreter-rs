@@ -1,14 +1,14 @@
 use crate::runtime::Runtime;
 use crate::runtime::call::{expect_args_count, get_function_runtime_frame};
 use crate::runtime::exceptions::RuntimeError;
-use crate::runtime::utils::{extract_class, extract_function};
-use crate::runtime::values::Value;
+use crate::runtime::utils::{extract_class_ref, extract_function_ref};
+use crate::runtime::value::{Value, ValueRef};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 pub(crate) fn make_map(runtime: &mut Runtime, property_count: usize) -> Result<(), RuntimeError> {
-    let properties_kv: Vec<Rc<RefCell<Value>>> = runtime
+    let properties_kv: Vec<ValueRef> = runtime
         .mem_stack
         .drain(runtime.mem_stack.len() - property_count..)
         .collect();
@@ -45,7 +45,7 @@ pub(crate) fn make_class(runtime: &mut Runtime, is_inheriting: bool) -> Result<(
     let superclass_ref = is_inheriting.then(|| runtime.mem_stack.pop().unwrap().clone());
     let class_code_obj = match &*uncasted_class.borrow() {
         Value::Class(class_value) => class_value.body.clone(),
-        _ => panic!("Make class called on non-class value, compiler level error"),
+        _ => unreachable!("Make class called on non-class value, compiler level error"),
     };
     runtime.mem_stack.push(Rc::new(RefCell::new(Value::class(
         superclass_ref,
@@ -56,17 +56,17 @@ pub(crate) fn make_class(runtime: &mut Runtime, is_inheriting: bool) -> Result<(
 
 pub(crate) fn make_instance(
     runtime: &mut Runtime,
-    value_cls: Rc<RefCell<Value>>,
-    mut args: Vec<Rc<RefCell<Value>>>,
+    value_cls: ValueRef,
+    mut args: Vec<ValueRef>,
 ) -> Result<(), RuntimeError> {
-    let class_value = extract_class(&value_cls);
+    let class_value = extract_class_ref(&value_cls);
     let class_code_object = class_value.body;
     let instance = Rc::new(RefCell::new(Value::instance(value_cls, HashMap::new())));
     let frame = runtime.get_code_object_frame(&class_code_object)?;
     // execute init if exists
     if let Some(init_func_index) = class_code_object.variable_index_lookup.get("init") {
         if let Some(init_func) = frame.variables.get(*init_func_index) {
-            let init_func_value = extract_function(init_func);
+            let init_func_value = extract_function_ref(init_func);
             args.push(instance.clone());
             expect_args_count(args.len(), init_func_value.parameters.len())?;
             runtime.push_to_frame_stack(get_function_runtime_frame(&init_func_value, args));

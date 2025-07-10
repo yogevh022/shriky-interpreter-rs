@@ -6,7 +6,7 @@ use crate::compiler::vm_static::{cache_constant, cache_variable};
 use crate::compiler::{ByteOp, Compiler};
 use crate::parser::ExprNode;
 use crate::parser::nodes::{AccessAttributeNode, BinarySubscribeNode, IdentityNode, StringNode};
-use crate::runtime::values::Value;
+use crate::runtime::value::Value;
 use std::cell::RefCell;
 use std::rc::Rc;
 

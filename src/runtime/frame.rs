@@ -1,5 +1,5 @@
 use crate::compiler::code_object::CodeObject;
-use crate::runtime::values::Value;
+use crate::runtime::value::{Value, ValueRef};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -7,7 +7,7 @@ use std::rc::Rc;
 #[derive(Debug)]
 pub struct RuntimeFrame {
     pub code_object_id: usize,
-    pub variables: Vec<Rc<RefCell<Value>>>,
+    pub variables: Vec<ValueRef>,
     pub variable_index_lookup: HashMap<String, usize>,
 }
 

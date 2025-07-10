@@ -6,7 +6,7 @@ use crate::compiler::vm_static::*;
 use crate::compiler::{ByteOp, Compiler};
 use crate::parser::ExprNode;
 use crate::parser::nodes::{ClassNode, FunctionNode, ListNode, MapNode};
-use crate::runtime::values::{FunctionValue, Value};
+use crate::runtime::value::{FunctionValue, Value};
 use std::cell::RefCell;
 use std::rc::Rc;
 
