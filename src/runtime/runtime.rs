@@ -71,6 +71,11 @@ impl Runtime {
             .pop()
             .unwrap_or_else(|| Rc::new(RefCell::new(Value::Null)))
     }
+    
+    pub(crate) fn pop_mem_stack(&mut self) -> Result<(), RuntimeError> {
+        self.mem_stack.pop();
+        Ok(())
+    }
 
     pub(crate) fn get_code_object_frame(
         &mut self,
@@ -113,6 +118,7 @@ impl Runtime {
                 ByteOp::Compare => compare(self, byte_op.operand),
                 ByteOp::LogicalAnd => logical_and(self),
                 ByteOp::LogicalOr => logical_or(self),
+                ByteOp::Pop => self.pop_mem_stack(),
                 ByteOp::PopJumpIfFalse => {
                     if !pop_check_truthy(self) {
                         ip = byte_op.operand;
