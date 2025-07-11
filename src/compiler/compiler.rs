@@ -15,6 +15,10 @@ pub enum CompileContext {
     Function,
     Class,
     Assignment,
+    Argument,
+    Identity,
+    Binary,
+    Return,
     Normal,
 }
 

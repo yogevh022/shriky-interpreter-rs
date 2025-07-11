@@ -137,7 +137,7 @@ impl Runtime {
     }
 
     pub fn run(&mut self, code_object: &CodeObject) {
-        self.print_ast(code_object);
+        // self.print_ast(code_object);
         let frame = RuntimeFrame::from_co(code_object);
         self.push_to_frame_stack(frame);
         let status = self.execute(code_object); // todo catch this

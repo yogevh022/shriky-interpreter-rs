@@ -44,6 +44,7 @@ pub enum ByteOp {
     // return
     ReturnValue,
 
+    Pop,
     PopJumpIfFalse,
     Jump,
 }

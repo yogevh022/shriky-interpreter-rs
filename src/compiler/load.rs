@@ -48,9 +48,12 @@ pub(crate) fn identity(
             }
             _ => load_local_or_nonlocal(compiler, code_object.clone(), string_base),
         },
-        Some(ExprNode::Call(func_call_base)) => {
-            call(compiler, code_object.clone(), func_call_base, context)
-        }
+        Some(ExprNode::Call(func_call_base)) => call(
+            compiler,
+            code_object.clone(),
+            func_call_base,
+            &CompileContext::Identity,
+        ),
         _ => panic!(
             "Unexpected identity base: {:?}",
             identity_address_iter.collect::<Vec<_>>()

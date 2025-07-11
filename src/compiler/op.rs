@@ -18,8 +18,8 @@ pub(crate) fn binary(
     binary_node: BinaryNode,
     context: &CompileContext,
 ) {
-    compiler.compile_expr(*binary_node.left, context);
-    compiler.compile_expr(*binary_node.right, context);
+    compiler.compile_expr(*binary_node.left, &CompileContext::Binary);
+    compiler.compile_expr(*binary_node.right, &CompileContext::Binary);
     let mut_code_obj = &mut *code_object.borrow_mut();
     match binary_node.operator {
         TokenKind::Plus | TokenKind::Increment => {
@@ -104,7 +104,7 @@ pub(crate) fn return_value(
     return_node: ReturnNode,
     context: &CompileContext,
 ) {
-    compiler.compile_expr(*return_node.value, context);
+    compiler.compile_expr(*return_node.value, &CompileContext::Return);
     compiler.push_op(
         &mut *code_object.borrow_mut(),
         OpIndex::without_op(ByteOp::ReturnValue),
@@ -121,12 +121,26 @@ pub(crate) fn call(
     call_node
         .arguments
         .into_iter()
-        .for_each(|arg| compiler.compile_expr(arg, &CompileContext::Normal));
+        .for_each(|arg| compiler.compile_expr(arg, &CompileContext::Argument));
     identity(compiler, code_object.clone(), call_node.identity, context);
     compiler.push_op(
         &mut *code_object.borrow_mut(),
         OpIndex::with_op(ByteOp::Call, arg_count),
     );
+    // if the return value is uncaught, discard it after the call
+    if !matches!(
+        context,
+        CompileContext::Assignment
+            | CompileContext::Argument
+            | CompileContext::Identity
+            | CompileContext::Binary
+            | CompileContext::Return
+    ) {
+        compiler.push_op(
+            &mut *code_object.borrow_mut(),
+            OpIndex::without_op(ByteOp::Pop),
+        )
+    }
 }
 
 pub(crate) fn comparison(
@@ -146,8 +160,8 @@ pub(crate) fn comparison(
             comparison_node.operator
         ),
     };
-    compiler.compile_expr(*comparison_node.left, &CompileContext::Normal);
-    compiler.compile_expr(*comparison_node.right, &CompileContext::Normal);
+    compiler.compile_expr(*comparison_node.left, &CompileContext::Binary);
+    compiler.compile_expr(*comparison_node.right, &CompileContext::Binary);
     compiler.push_op(
         &mut *code_object.borrow_mut(),
         OpIndex::with_op(ByteOp::Compare, operand as usize),
@@ -159,8 +173,8 @@ pub(crate) fn logical(
     code_object: Rc<RefCell<CodeObject>>,
     logical_node: LogicalNode,
 ) {
-    compiler.compile_expr(*logical_node.left, &CompileContext::Normal);
-    compiler.compile_expr(*logical_node.right, &CompileContext::Normal);
+    compiler.compile_expr(*logical_node.left, &CompileContext::Binary);
+    compiler.compile_expr(*logical_node.right, &CompileContext::Binary);
     let op = match logical_node.operator {
         TokenKind::LogicalAND => ByteOp::LogicalAnd,
         TokenKind::LogicalOR => ByteOp::LogicalOr,
