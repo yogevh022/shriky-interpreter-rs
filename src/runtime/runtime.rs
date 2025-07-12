@@ -71,7 +71,7 @@ impl Runtime {
             .unwrap_or_else(|| Rc::new(RefCell::new(Value::Null)))
     }
     
-    pub(crate) fn pop_mem_stack(&mut self) -> Result<(), RuntimeError> {
+    pub(crate) fn pop_mem_stack(&mut self) -> Result<(), RuntimeException> {
         self.mem_stack.pop();
         Ok(())
     }
