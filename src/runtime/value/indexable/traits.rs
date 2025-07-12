@@ -1,13 +1,12 @@
 use crate::runtime::Runtime;
-use crate::runtime::exceptions::RuntimeError;
 use crate::runtime::utils::extract_class_ref;
-use crate::runtime::value::{ClassValue, ValueRef};
+use crate::runtime::value::{ClassValue, RuntimeException, ValueRef};
 
 pub(crate) fn get_class_attr(
     runtime: &mut Runtime,
     class_value: ClassValue,
     attr_string: &String,
-) -> Result<Option<ValueRef>, RuntimeError> {
+) -> Result<Option<ValueRef>, RuntimeException> {
     let code_object = class_value.body;
     if let Some(attr_index) = code_object.variable_index_lookup.get(attr_string) {
         Ok(Some(
@@ -22,9 +21,17 @@ pub(crate) fn get_class_attr(
 }
 
 pub trait Subscriptable {
-    fn index(&mut self, runtime: &mut Runtime, key: &ValueRef) -> Result<ValueRef, RuntimeError>;
+    fn index(
+        &mut self,
+        runtime: &mut Runtime,
+        key: &ValueRef,
+    ) -> Result<ValueRef, RuntimeException>;
 }
 
 pub trait AttributeAccessible {
-    fn get_attr(&mut self, runtime: &mut Runtime, name: &String) -> Result<ValueRef, RuntimeError>;
+    fn get_attr(
+        &mut self,
+        runtime: &mut Runtime,
+        name: &String,
+    ) -> Result<ValueRef, RuntimeException>;
 }

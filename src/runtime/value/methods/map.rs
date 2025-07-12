@@ -1,7 +1,7 @@
-use crate::runtime::exceptions::RuntimeError;
+use crate::runtime::value::exception;
 use crate::runtime::value::methods::traits::{MethodFn, MethodProvider};
 use crate::runtime::value::methods::utils::arg_check;
-use crate::runtime::value::{MapValue, Value, ValueRef};
+use crate::runtime::value::{MapValue, RuntimeException, Value, ValueRef};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -22,7 +22,7 @@ impl MapValue {
     pub fn method_insert(
         map_value: &ValueRef,
         args: &[&ValueRef],
-    ) -> Result<Option<ValueRef>, RuntimeError> {
+    ) -> Result<Option<ValueRef>, RuntimeException> {
         arg_check(args.len(), 2, "Map.insert")?;
         match &mut *map_value.borrow_mut() {
             Value::Map(map) => {
@@ -37,18 +37,14 @@ impl MapValue {
     pub fn method_get(
         map_value: &ValueRef,
         args: &[&ValueRef],
-    ) -> Result<Option<ValueRef>, RuntimeError> {
+    ) -> Result<Option<ValueRef>, RuntimeException> {
         arg_check(args.len(), 1, "Map.get")?;
         match &mut *map_value.borrow_mut() {
             Value::Map(map) => {
                 let key = &*args[0].borrow();
-                let result =
-                    map.properties
-                        .get(key)
-                        .ok_or(RuntimeError::EntryNotFound(format!(
-                            "Entry with key {:?} not found",
-                            key
-                        )))?;
+                let result = map.properties.get(key).ok_or(
+                    exception::KEY_ERROR.runtime(format!("Entry with key {:?} not found", key)),
+                )?;
                 Ok(Some(result.clone()))
             }
             _ => unreachable!(),
@@ -58,17 +54,14 @@ impl MapValue {
     pub fn method_remove(
         map_value: &ValueRef,
         args: &[&ValueRef],
-    ) -> Result<Option<ValueRef>, RuntimeError> {
+    ) -> Result<Option<ValueRef>, RuntimeException> {
         arg_check(args.len(), 1, "Map.remove")?;
         match &mut *map_value.borrow_mut() {
             Value::Map(map) => {
                 let key = &*args[0].borrow();
-                map.properties
-                    .shift_remove(key)
-                    .ok_or(RuntimeError::EntryNotFound(format!(
-                        "Entry with key {:?} not found",
-                        key
-                    )))?;
+                map.properties.shift_remove(key).ok_or(
+                    exception::KEY_ERROR.runtime(format!("Entry with key {:?} not found", key)),
+                )?;
                 Ok(None)
             }
             _ => unreachable!(),
@@ -78,7 +71,7 @@ impl MapValue {
     pub fn method_len(
         map_value: &ValueRef,
         args: &[&ValueRef],
-    ) -> Result<Option<ValueRef>, RuntimeError> {
+    ) -> Result<Option<ValueRef>, RuntimeException> {
         arg_check(args.len(), 0, "Map.len")?;
         match &mut *map_value.borrow_mut() {
             Value::Map(map) => Ok(Some(Rc::new(RefCell::new(Value::int(
@@ -91,7 +84,7 @@ impl MapValue {
     pub fn method_is_empty(
         map_value: &ValueRef,
         args: &[&ValueRef],
-    ) -> Result<Option<ValueRef>, RuntimeError> {
+    ) -> Result<Option<ValueRef>, RuntimeException> {
         arg_check(args.len(), 0, "Map.is_empty")?;
         match &mut *map_value.borrow_mut() {
             Value::Map(map) => Ok(Some(Rc::new(RefCell::new(Value::bool(

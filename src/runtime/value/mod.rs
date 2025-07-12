@@ -11,6 +11,8 @@ pub use methods::MethodFn;
 use std::cell::RefCell;
 use std::rc::Rc;
 pub use types::class::ClassValue;
+pub use types::exception;
+pub use types::exception::{ExceptionValue, RuntimeException};
 pub use types::function::FunctionValue;
 pub use types::instance::InstanceValue;
 pub use types::list::ListValue;

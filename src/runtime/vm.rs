@@ -1,8 +1,7 @@
 use crate::compiler::code_object::CodeObject;
 use crate::runtime::Runtime;
-use crate::runtime::exceptions::RuntimeError;
 use crate::runtime::utils::extract_int_ref;
-use crate::runtime::value::Value;
+use crate::runtime::value::{RuntimeException, Value};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -10,13 +9,16 @@ pub(crate) fn load_constant(
     runtime: &mut Runtime,
     code_object: &CodeObject,
     constant_index: usize,
-) -> Result<(), RuntimeError> {
+) -> Result<(), RuntimeException> {
     let constant_value = code_object.constants[constant_index].clone();
     runtime.mem_stack.push(constant_value);
     Ok(())
 }
 
-pub(crate) fn load_local(runtime: &mut Runtime, variable_index: usize) -> Result<(), RuntimeError> {
+pub(crate) fn load_local(
+    runtime: &mut Runtime,
+    variable_index: usize,
+) -> Result<(), RuntimeException> {
     let frame = runtime.frames_stack.last().unwrap();
     let var_value = frame.variables[variable_index].clone();
     runtime.mem_stack.push(var_value);
@@ -26,7 +28,7 @@ pub(crate) fn load_local(runtime: &mut Runtime, variable_index: usize) -> Result
 pub(crate) fn load_nonlocal(
     runtime: &mut Runtime,
     nonlocal_index: usize,
-) -> Result<(), RuntimeError> {
+) -> Result<(), RuntimeException> {
     let frame_index = extract_int_ref(&runtime.mem_stack.pop().unwrap()) as usize;
     let nonlocal_value =
         runtime.frames_stack.get(frame_index).unwrap().variables[nonlocal_index].clone();
@@ -34,7 +36,10 @@ pub(crate) fn load_nonlocal(
     Ok(())
 }
 
-pub(crate) fn load_scope(runtime: &mut Runtime, code_object_id: usize) -> Result<(), RuntimeError> {
+pub(crate) fn load_scope(
+    runtime: &mut Runtime,
+    code_object_id: usize,
+) -> Result<(), RuntimeException> {
     let scope_frame_index = runtime
         .frames_stack_id_lookup
         .get(&code_object_id)
@@ -51,9 +56,9 @@ pub(crate) fn pop_check_truthy(runtime: &mut Runtime) -> bool {
     (&*condition.borrow()).is_truthy()
 }
 
-pub(crate) fn apply_bin_op<F>(runtime: &mut Runtime, f: F) -> Result<(), RuntimeError>
+pub(crate) fn apply_bin_op<F>(runtime: &mut Runtime, f: F) -> Result<(), RuntimeException>
 where
-    F: Fn(&mut Value, &Value) -> Result<Value, RuntimeError>,
+    F: Fn(&mut Value, &Value) -> Result<Value, RuntimeException>,
 {
     let b = runtime.mem_stack.pop().unwrap();
     let a = runtime.mem_stack.pop().unwrap();
