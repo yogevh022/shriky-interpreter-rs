@@ -1,9 +1,9 @@
 use crate::runtime::Runtime;
-use crate::runtime::exceptions::RuntimeError;
 use crate::runtime::utils::extract_string_ref;
-use crate::runtime::value::Value;
+use crate::runtime::value::exception;
+use crate::runtime::value::{RuntimeException, Value};
 
-pub fn pre_assign(runtime: &mut Runtime, variable_index: usize) -> Result<(), RuntimeError> {
+pub fn pre_assign(runtime: &mut Runtime, variable_index: usize) -> Result<(), RuntimeException> {
     let frame = runtime.frames_stack.last().unwrap();
     let value = runtime.mem_stack.pop().unwrap();
     let var = frame.variables[variable_index].clone();
@@ -12,7 +12,7 @@ pub fn pre_assign(runtime: &mut Runtime, variable_index: usize) -> Result<(), Ru
     Ok(())
 }
 
-pub fn assign_subscribe(runtime: &mut Runtime) -> Result<(), RuntimeError> {
+pub fn assign_subscribe(runtime: &mut Runtime) -> Result<(), RuntimeException> {
     let value = runtime.mem_stack.pop().unwrap();
     let key = runtime.mem_stack.pop().unwrap();
     let container = runtime.mem_stack.pop().unwrap();
@@ -26,17 +26,17 @@ pub fn assign_subscribe(runtime: &mut Runtime) -> Result<(), RuntimeError> {
                 list.elements.insert(index.0 as usize, value.clone());
                 return Ok(());
             }
-            Err(RuntimeError::InvalidType(
-                "Lists can only be subscribed to with integers".to_string(),
-            ))
+            Err(exception::TYPE
+                .runtime("Lists can only be subscribed to with integers".to_string()))
         }
-        _ => Err(RuntimeError::InvalidType(
-            "Attempted subscription to an unsubscribable type".to_string(),
-        )),
+        _ => {
+            Err(exception::TYPE
+                .runtime("Attempted subscription to an unsubscribable type".to_string()))
+        }
     }
 }
 
-pub fn assign_attribute(runtime: &mut Runtime) -> Result<(), RuntimeError> {
+pub fn assign_attribute(runtime: &mut Runtime) -> Result<(), RuntimeException> {
     let value = runtime.mem_stack.pop().unwrap();
     let attr_name = runtime.mem_stack.pop().unwrap();
     let container = runtime.mem_stack.pop().unwrap();
@@ -47,8 +47,9 @@ pub fn assign_attribute(runtime: &mut Runtime) -> Result<(), RuntimeError> {
                 .insert(extract_string_ref(&attr_name), value.clone());
             Ok(())
         }
-        _ => Err(RuntimeError::InvalidOperation(
-            "Cannot access attributes of a non-instance type".to_string(),
-        )),
+        _ => {
+            Err(exception::TYPE
+                .runtime("Cannot access attributes of a non-instance type".to_string()))
+        }
     }
 }

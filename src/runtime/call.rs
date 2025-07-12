@@ -1,9 +1,7 @@
 use crate::runtime::Runtime;
-use crate::runtime::exceptions::RuntimeError;
 use crate::runtime::frame::RuntimeFrame;
 use crate::runtime::make::make_instance;
 use crate::runtime::value::*;
-use std::rc::Rc;
 
 pub(crate) fn get_function_runtime_frame(
     function_value: &FunctionValue,
@@ -23,9 +21,9 @@ pub(crate) fn get_function_runtime_frame(
 pub(crate) fn expect_args_count(
     arg_count: usize,
     expected_arg_count: usize,
-) -> Result<(), RuntimeError> {
+) -> Result<(), RuntimeException> {
     if arg_count != expected_arg_count {
-        return Err(RuntimeError::ArgumentCount(format!(
+        return Err(exception::ARGUMENT.runtime(format!(
             "Callable expected {} arguments, got {}",
             expected_arg_count, arg_count
         )));
@@ -37,11 +35,11 @@ pub(crate) fn call_rust_method(
     function: MethodFn,
     caller: &ValueRef,
     args: &[&ValueRef],
-) -> Result<Option<ValueRef>, RuntimeError> {
+) -> Result<Option<ValueRef>, RuntimeException> {
     function(caller, args)
 }
 
-pub(crate) fn call(runtime: &mut Runtime, arg_count: usize) -> Result<(), RuntimeError> {
+pub(crate) fn call(runtime: &mut Runtime, arg_count: usize) -> Result<(), RuntimeException> {
     let callee = runtime.mem_stack.pop().unwrap();
     let mut owned_args: Vec<ValueRef> = (0..arg_count)
         .map(|_| runtime.mem_stack.pop().unwrap())

@@ -4,12 +4,11 @@ use crate::runtime::access::*;
 use crate::runtime::assign::*;
 use crate::runtime::call::*;
 use crate::runtime::compare::*;
-use crate::runtime::exceptions::RuntimeError;
 use crate::runtime::frame::RuntimeFrame;
 use crate::runtime::logical::*;
 use crate::runtime::make::*;
 use crate::runtime::value::traits::Binary;
-use crate::runtime::value::{Value, ValueRef};
+use crate::runtime::value::{RuntimeException, Value, ValueRef};
 use crate::runtime::vm::*;
 use std;
 use std::cell::RefCell;
@@ -80,7 +79,7 @@ impl Runtime {
     pub(crate) fn get_code_object_frame(
         &mut self,
         code_object: &CodeObject,
-    ) -> Result<&RuntimeFrame, RuntimeError> {
+    ) -> Result<&RuntimeFrame, RuntimeException> {
         if self.frames_cache.contains_key(&code_object.id) {
             return Ok(self.frames_cache.get(&code_object.id).unwrap());
         }
@@ -91,7 +90,7 @@ impl Runtime {
         Ok(self.frames_cache.get(&code_object.id).unwrap())
     }
 
-    pub(crate) fn execute(&mut self, code_object: &CodeObject) -> Result<(), RuntimeError> {
+    pub(crate) fn execute(&mut self, code_object: &CodeObject) -> Result<(), RuntimeException> {
         let mut ip = 0;
         while let Some(byte_op) = code_object.operations.get(ip) {
             let operation_result = match byte_op.operation {

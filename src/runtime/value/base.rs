@@ -1,4 +1,3 @@
-use crate::runtime::exceptions::RuntimeError;
 use crate::runtime::value::binary::traits::Binary;
 use crate::runtime::value::indexable::{AttributeAccessible, Subscriptable};
 use crate::runtime::value::types::bool::BoolValue;
@@ -6,6 +5,7 @@ use crate::runtime::value::types::float::FloatValue;
 use crate::runtime::value::types::int::IntValue;
 use crate::runtime::value::types::rust_method::RustMethodValue;
 use crate::runtime::value::types::string::StringValue;
+use crate::runtime::value::types::exception::ExceptionValue;
 use crate::runtime::value::*;
 use crate::utils::counter::Counter;
 use std::fmt::Debug;
@@ -26,11 +26,12 @@ pub enum Value {
     RustMethod(RustMethodValue),
     Class(ClassValue),
     Instance(InstanceValue),
+    Exception(ExceptionValue),
     Null,
 }
 
 impl Binary for Value {
-    fn add(&mut self, other: &Value) -> Result<Value, RuntimeError> {
+    fn add(&mut self, other: &Value) -> Result<Value, RuntimeException> {
         match self {
             Value::Int(value) => value.add(other),
             Value::Float(value) => value.add(other),
@@ -40,7 +41,7 @@ impl Binary for Value {
         }
     }
 
-    fn sub(&mut self, other: &Value) -> Result<Value, RuntimeError> {
+    fn sub(&mut self, other: &Value) -> Result<Value, RuntimeException> {
         match self {
             Value::Int(value) => value.sub(other),
             Value::Float(value) => value.sub(other),
@@ -50,7 +51,7 @@ impl Binary for Value {
         }
     }
 
-    fn mul(&mut self, other: &Value) -> Result<Value, RuntimeError> {
+    fn mul(&mut self, other: &Value) -> Result<Value, RuntimeException> {
         match self {
             Value::Int(value) => value.mul(other),
             Value::Float(value) => value.mul(other),
@@ -60,7 +61,7 @@ impl Binary for Value {
         }
     }
 
-    fn div(&mut self, other: &Value) -> Result<Value, RuntimeError> {
+    fn div(&mut self, other: &Value) -> Result<Value, RuntimeException> {
         match self {
             Value::Int(value) => value.div(other),
             Value::Float(value) => value.div(other),
@@ -70,7 +71,7 @@ impl Binary for Value {
         }
     }
 
-    fn int_div(&mut self, other: &Value) -> Result<Value, RuntimeError> {
+    fn int_div(&mut self, other: &Value) -> Result<Value, RuntimeException> {
         match self {
             Value::Int(value) => value.int_div(other),
             Value::Float(value) => value.int_div(other),
@@ -80,7 +81,7 @@ impl Binary for Value {
         }
     }
 
-    fn modulus(&mut self, other: &Value) -> Result<Value, RuntimeError> {
+    fn modulus(&mut self, other: &Value) -> Result<Value, RuntimeException> {
         match self {
             Value::Int(value) => value.modulus(other),
             Value::Float(value) => value.modulus(other),
@@ -90,7 +91,7 @@ impl Binary for Value {
         }
     }
 
-    fn pow(&mut self, other: &Value) -> Result<Value, RuntimeError> {
+    fn pow(&mut self, other: &Value) -> Result<Value, RuntimeException> {
         match self {
             Value::Int(value) => value.pow(other),
             Value::Float(value) => value.pow(other),
@@ -100,7 +101,7 @@ impl Binary for Value {
         }
     }
 
-    fn equals(&mut self, other: &Value) -> Result<Value, RuntimeError> {
+    fn equals(&mut self, other: &Value) -> Result<Value, RuntimeException> {
         match self {
             Value::Int(value) => value.equals(other),
             Value::Float(value) => value.equals(other),
@@ -110,7 +111,7 @@ impl Binary for Value {
         }
     }
 
-    fn greater(&mut self, other: &Value) -> Result<Value, RuntimeError> {
+    fn greater(&mut self, other: &Value) -> Result<Value, RuntimeException> {
         match self {
             Value::Int(value) => value.greater(other),
             Value::Float(value) => value.greater(other),
@@ -120,7 +121,7 @@ impl Binary for Value {
         }
     }
 
-    fn greater_equals(&mut self, other: &Value) -> Result<Value, RuntimeError> {
+    fn greater_equals(&mut self, other: &Value) -> Result<Value, RuntimeException> {
         match self {
             Value::Int(value) => value.greater_equals(other),
             Value::Float(value) => value.greater_equals(other),
@@ -130,7 +131,7 @@ impl Binary for Value {
         }
     }
 
-    fn less(&mut self, other: &Value) -> Result<Value, RuntimeError> {
+    fn less(&mut self, other: &Value) -> Result<Value, RuntimeException> {
         match self {
             Value::Int(value) => value.less(other),
             Value::Float(value) => value.less(other),
@@ -140,7 +141,7 @@ impl Binary for Value {
         }
     }
 
-    fn less_equals(&mut self, other: &Value) -> Result<Value, RuntimeError> {
+    fn less_equals(&mut self, other: &Value) -> Result<Value, RuntimeException> {
         match self {
             Value::Int(value) => value.less_equals(other),
             Value::Float(value) => value.less_equals(other),
@@ -161,11 +162,7 @@ impl Value {
             Value::Null => false,
             Value::Map(o) => !o.properties.is_empty(),
             Value::List(l) => !l.elements.is_empty(),
-            Value::Function(_) => true,
-            Value::Method(_) => true,
-            Value::Class(_) => true,
-            Value::Instance(_) => true,
-            Value::RustMethod(_) => true,
+            _ => true,
         }
     }
 

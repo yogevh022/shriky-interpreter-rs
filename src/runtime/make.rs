@@ -1,13 +1,15 @@
 use crate::runtime::Runtime;
 use crate::runtime::call::{expect_args_count, get_function_runtime_frame};
-use crate::runtime::exceptions::RuntimeError;
 use crate::runtime::utils::{extract_class_ref, extract_function_ref};
-use crate::runtime::value::{Value, ValueRef};
+use crate::runtime::value::{RuntimeException, Value, ValueRef};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-pub(crate) fn make_map(runtime: &mut Runtime, property_count: usize) -> Result<(), RuntimeError> {
+pub(crate) fn make_map(
+    runtime: &mut Runtime,
+    property_count: usize,
+) -> Result<(), RuntimeException> {
     let properties_kv: Vec<ValueRef> = runtime
         .mem_stack
         .drain(runtime.mem_stack.len() - property_count..)
@@ -28,7 +30,7 @@ pub(crate) fn make_map(runtime: &mut Runtime, property_count: usize) -> Result<(
     Ok(())
 }
 
-pub(crate) fn make_list(runtime: &mut Runtime, list_size: usize) -> Result<(), RuntimeError> {
+pub(crate) fn make_list(runtime: &mut Runtime, list_size: usize) -> Result<(), RuntimeException> {
     let list_items = runtime
         .mem_stack
         .drain(runtime.mem_stack.len() - list_size..)
@@ -40,7 +42,10 @@ pub(crate) fn make_list(runtime: &mut Runtime, list_size: usize) -> Result<(), R
     Ok(())
 }
 
-pub(crate) fn make_class(runtime: &mut Runtime, is_inheriting: bool) -> Result<(), RuntimeError> {
+pub(crate) fn make_class(
+    runtime: &mut Runtime,
+    is_inheriting: bool,
+) -> Result<(), RuntimeException> {
     let uncasted_class = runtime.mem_stack.pop().unwrap();
     let superclass_ref = is_inheriting.then(|| runtime.mem_stack.pop().unwrap().clone());
     let class_code_obj = match &*uncasted_class.borrow() {
@@ -58,7 +63,7 @@ pub(crate) fn make_instance(
     runtime: &mut Runtime,
     value_cls: ValueRef,
     mut args: Vec<ValueRef>,
-) -> Result<(), RuntimeError> {
+) -> Result<(), RuntimeException> {
     let class_value = extract_class_ref(&value_cls);
     let class_code_object = class_value.body;
     let instance = Rc::new(RefCell::new(Value::instance(value_cls, HashMap::new())));

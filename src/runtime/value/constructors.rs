@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use crate::compiler::code_object::CodeObject;
 use crate::parser::ExprNode;
 use crate::parser::nodes::{ListNode, MapNode};
@@ -107,5 +108,9 @@ impl Value {
             function,
             caller,
         })
+    }
+    
+    pub fn exception(kind: String) -> Value {
+        Value::Exception(ExceptionValue(Cow::Owned(kind)))
     }
 }

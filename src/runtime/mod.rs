@@ -2,7 +2,6 @@ mod access;
 mod assign;
 mod call;
 mod compare;
-mod exceptions;
 mod frame;
 mod logical;
 mod make;

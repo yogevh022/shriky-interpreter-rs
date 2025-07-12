@@ -1,9 +1,8 @@
-use crate::runtime::exceptions::RuntimeError;
 use crate::runtime::utils::extract_int_ref;
+use crate::runtime::value::exception;
 use crate::runtime::value::methods::traits::{MethodFn, MethodProvider};
 use crate::runtime::value::methods::utils::arg_check;
-use crate::runtime::value::utils::extract_list;
-use crate::runtime::value::{ListValue, Value, ValueRef};
+use crate::runtime::value::{ListValue, RuntimeException, Value, ValueRef};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -26,7 +25,7 @@ impl ListValue {
     pub fn method_push(
         list_value: &ValueRef,
         args: &[&ValueRef],
-    ) -> Result<Option<ValueRef>, RuntimeError> {
+    ) -> Result<Option<ValueRef>, RuntimeException> {
         arg_check(args.len(), 1, "List.push")?;
         match &mut *list_value.borrow_mut() {
             Value::List(list) => {
@@ -40,15 +39,10 @@ impl ListValue {
     pub fn method_pop(
         list_value: &ValueRef,
         args: &[&ValueRef],
-    ) -> Result<Option<ValueRef>, RuntimeError> {
+    ) -> Result<Option<ValueRef>, RuntimeException> {
         arg_check(args.len(), 0, "List.pop")?;
         match &mut *list_value.borrow_mut() {
-            Value::List(list) => {
-                list.elements.pop().ok_or(RuntimeError::OutOfBounds(
-                    "Called .pop() on an empty list".to_string(),
-                ))?;
-                Ok(None)
-            }
+            Value::List(list) => Ok(list.elements.pop()),
             _ => unreachable!(),
         }
     }
@@ -56,18 +50,16 @@ impl ListValue {
     pub fn method_pop_at(
         list_value: &ValueRef,
         args: &[&ValueRef],
-    ) -> Result<Option<ValueRef>, RuntimeError> {
+    ) -> Result<Option<ValueRef>, RuntimeException> {
         arg_check(args.len(), 1, "List.pop_at")?;
         let index = extract_int_ref(&args[0]) as usize;
         match &mut *list_value.borrow_mut() {
             Value::List(list) => {
                 if list.elements.len() <= index {
-                    return Ok(Some(list.elements.remove(index)));
+                    return Err(exception::INDEX_ERROR
+                        .runtime(format!("List index {} is out of bounds", index)));
                 }
-                Err(RuntimeError::OutOfBounds(format!(
-                    "List index {} is out of bounds",
-                    index
-                )))
+                Ok(Some(list.elements.remove(index)))
             }
             _ => unreachable!(),
         }
@@ -76,18 +68,15 @@ impl ListValue {
     pub fn method_get(
         list_value: &ValueRef,
         args: &[&ValueRef],
-    ) -> Result<Option<ValueRef>, RuntimeError> {
+    ) -> Result<Option<ValueRef>, RuntimeException> {
         arg_check(args.len(), 1, "List.get")?;
         let index = extract_int_ref(&args[0]) as usize;
         match &mut *list_value.borrow_mut() {
             Value::List(list) => {
-                let result = list
-                    .elements
-                    .get(index)
-                    .ok_or(RuntimeError::OutOfBounds(format!(
-                        "List index {} is out of bounds",
-                        index
-                    )))?;
+                let result = list.elements.get(index).ok_or(
+                    exception::INDEX_ERROR
+                        .runtime(format!("List index {} is out of bounds", index)),
+                )?;
                 Ok(Some(result.clone()))
             }
             _ => unreachable!(),
@@ -97,11 +86,16 @@ impl ListValue {
     pub fn method_remove(
         list_value: &ValueRef,
         args: &[&ValueRef],
-    ) -> Result<Option<ValueRef>, RuntimeError> {
+    ) -> Result<Option<ValueRef>, RuntimeException> {
         arg_check(args.len(), 1, "List.remove")?;
         let index = extract_int_ref(&args[0]) as usize;
         match &mut *list_value.borrow_mut() {
             Value::List(list) => {
+                if list.elements.len() <= index {
+                    return Err(
+                        exception::INDEX_ERROR.runtime("List index out of bounds".to_string())
+                    );
+                }
                 list.elements.remove(index);
                 Ok(None)
             }
@@ -112,7 +106,7 @@ impl ListValue {
     pub fn method_len(
         list_value: &ValueRef,
         args: &[&ValueRef],
-    ) -> Result<Option<ValueRef>, RuntimeError> {
+    ) -> Result<Option<ValueRef>, RuntimeException> {
         arg_check(args.len(), 0, "List.len")?;
         match &mut *list_value.borrow_mut() {
             Value::List(list) => Ok(Some(Rc::new(RefCell::new(Value::int(
@@ -125,7 +119,7 @@ impl ListValue {
     pub fn method_is_empty(
         list_value: &ValueRef,
         args: &[&ValueRef],
-    ) -> Result<Option<ValueRef>, RuntimeError> {
+    ) -> Result<Option<ValueRef>, RuntimeException> {
         arg_check(args.len(), 0, "List.is_empty")?;
         match &mut *list_value.borrow_mut() {
             Value::List(list) => Ok(Some(Rc::new(RefCell::new(Value::bool(

@@ -1,5 +1,6 @@
 pub mod bool;
 pub mod class;
+pub mod exception;
 pub mod float;
 pub mod function;
 pub mod instance;

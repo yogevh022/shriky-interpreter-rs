@@ -1,7 +1,6 @@
-use crate::runtime::exceptions::RuntimeError;
-use crate::runtime::value::ValueRef;
+use crate::runtime::value::{RuntimeException, ValueRef};
 
-pub type MethodFn = fn(&ValueRef, &[&ValueRef]) -> Result<Option<ValueRef>, RuntimeError>;
+pub type MethodFn = fn(&ValueRef, &[&ValueRef]) -> Result<Option<ValueRef>, RuntimeException>;
 
 pub trait MethodProvider {
     fn get_method(name: &str) -> Option<MethodFn>
