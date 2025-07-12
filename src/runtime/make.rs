@@ -15,7 +15,7 @@ pub(crate) fn make_map(
         .drain(runtime.mem_stack.len() - property_count..)
         .collect();
 
-    let mut properties = indexmap::IndexMap::new();
+    let mut properties = HashMap::new();
     for kv in properties_kv.chunks(2) {
         match kv {
             [k, v] => {

@@ -32,7 +32,7 @@ impl Value {
         Value::Bool(BoolValue(value))
     }
 
-    pub fn map(properties: indexmap::IndexMap<Value, ValueRef>) -> Value {
+    pub fn map(properties: HashMap<Value, ValueRef>) -> Value {
         Value::Map(MapValue { properties })
     }
 
@@ -73,7 +73,7 @@ impl Value {
     }
 
     pub fn try_const_from_map(node: MapNode) -> Result<Value, ValueError> {
-        let mut obj_props = indexmap::IndexMap::new();
+        let mut obj_props = HashMap::new();
         for obj_prop in node.properties {
             obj_props.insert(
                 Value::from_expr(obj_prop.key)?,

@@ -59,7 +59,7 @@ impl MapValue {
         match &mut *map_value.borrow_mut() {
             Value::Map(map) => {
                 let key = &*args[0].borrow();
-                map.properties.shift_remove(key).ok_or(
+                map.properties.remove(key).ok_or(
                     exception::KEY_ERROR.runtime(format!("Entry with key {:?} not found", key)),
                 )?;
                 Ok(None)

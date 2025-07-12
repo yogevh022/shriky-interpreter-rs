@@ -37,8 +37,20 @@ impl Binary for IntValue {
 
     fn div(&mut self, other: &Value) -> Result<Value, RuntimeException> {
         match other {
-            Value::Int(other) => Ok(Value::float(self.0 as f64 / other.0 as f64)),
-            Value::Float(other) => Ok(Value::float(self.0 as f64 / other.0.0)),
+            Value::Int(other) => {
+                if other.0 == 0 {
+                    return Err(exception::INVALID_OPERATION
+                        .runtime(format!("Divide by zero {:?} / {:?}", self, other)));
+                }
+                Ok(Value::float(self.0 as f64 / other.0 as f64))
+            },
+            Value::Float(other) => {
+                if other.0 == 0.0 {
+                    return Err(exception::INVALID_OPERATION
+                        .runtime(format!("Divide by zero {:?} / {:?}", self, other)));
+                }
+                Ok(Value::float(self.0 as f64 / other.0.0))
+            },
             _ => Err(exception::INVALID_OPERATION
                 .runtime(format!("Invalid binary operation {:?} / {:?}", self, other))),
         }

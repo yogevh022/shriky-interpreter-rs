@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::runtime::Runtime;
 use crate::runtime::utils::value_to_ref;
 use crate::runtime::value::exception;
@@ -8,7 +9,7 @@ use std::hash::Hash;
 
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub struct MapValue {
-    pub properties: indexmap::IndexMap<Value, ValueRef>,
+    pub properties: HashMap<Value, ValueRef>,
 }
 
 impl AttributeAccessible for MapValue {
